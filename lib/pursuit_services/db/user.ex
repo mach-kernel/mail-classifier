@@ -1,5 +1,6 @@
-defmodule PursuitServices.DB.Users do
+defmodule PursuitServices.DB.User do
   use Ecto.Schema
+  import Ecto.Changeset
 
   @primary_key {:id, :integer, []}
   schema "users" do
@@ -17,5 +18,6 @@ defmodule PursuitServices.DB.Users do
     field :last_name, :string
     field :auth_provider, :integer
 
+    has_many :third_party_authorizations, PursuitServices.DB.ThirdPartyAuthorization
   end
 end

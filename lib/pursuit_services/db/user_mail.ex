@@ -1,4 +1,4 @@
-defmodule PursuitServices.DB.UserMails do
+defmodule PursuitServices.DB.UserMail do
   use Ecto.Schema
 
   @primary_key {:id, :integer, []}
@@ -21,7 +21,6 @@ defmodule PursuitServices.DB.UserMails do
     field :status, :integer
     field :clean_body, :string
 
-    belongs_to :user, PursuitServices.DB.Users
-    belongs_to :user_mail_thread, PursuitServices.DB.UserMailThreads
+    belongs_to :user, PursuitServices.DB.User
   end
 end

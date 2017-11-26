@@ -1,4 +1,4 @@
-defmodule PursuitServices.DB.UserTrainingSources do
+defmodule PursuitServices.DB.UserTrainingSource do
   use Ecto.Schema
 
   @primary_key {:id, :integer, []}
@@ -6,6 +6,5 @@ defmodule PursuitServices.DB.UserTrainingSources do
     field :auth_provider, :integer
     field :email, :string
     field :label, :string
-
   end
 end

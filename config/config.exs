@@ -36,14 +36,3 @@ config(
   database: "pursuit_development",
   username: "mach"
 )
-
-config(
-  :plsm,
-  module_name: "PursuitServices.DB",
-  destination: "lib/pursuit_services/db/",
-  server: "localhost",
-  port: "5432",
-  database_name: "pursuit_development",
-  username: "mach",
-  type: :postgres
-)

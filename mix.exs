@@ -16,7 +16,12 @@ defmodule PursuitServices.Mixfile do
     [
       mod: {PursuitServices.App, []},
       extra_applications: [
-        :logger, :dotenv, :amqp, :ecto, :postgrex
+        :logger,
+        :dotenv,
+        :amqp,
+        :ecto,
+        :postgrex,
+        :tesla
       ]
     ]
   end
@@ -24,11 +29,12 @@ defmodule PursuitServices.Mixfile do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      # Type checking
+      {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+
       # DB / FDM
       {:postgrex, ">= 0.0.0"},
       {:ecto, "~> 2.1"},
-      # Generate DB models from schema
-      {:plsm, "~> 2.0.1"},
 
       # .env
       {:dotenv, "~> 2.0.0"},
@@ -37,7 +43,13 @@ defmodule PursuitServices.Mixfile do
       {:amqp, "~> 1.0.0-pre.2"},
 
       # "Rubocop"
-      {:credo, "~> 0.8", only: [:dev, :test], runtime: false}
+      {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
+
+      # Fast JSON
+      {:poison, "~> 3.1"},
+
+      # REST
+      {:tesla, "~> 0.9.0"},
 
 
       # {:dep_from_hexpm, "~> 0.3.0"},

@@ -28,3 +28,22 @@ use Mix.Config
 # here (which is why it is important to import them last).
 #
 #     import_config "#{Mix.env}.exs"
+
+config(
+  :pursuit_services,
+  PursuitServices.DB,
+  adapter: Ecto.Adapters.Postgres,
+  database: "pursuit_development",
+  username: "mach"
+)
+
+config(
+  :plsm,
+  module_name: "PursuitServices.DB",
+  destination: "lib/pursuit_services/db/",
+  server: "localhost",
+  port: "5432",
+  database_name: "pursuit_development",
+  username: "mach",
+  type: :postgres
+)

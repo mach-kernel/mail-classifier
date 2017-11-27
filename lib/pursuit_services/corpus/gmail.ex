@@ -15,8 +15,7 @@ defmodule PursuitServices.Corpus.Gmail do
     {:ok, pid} = GenServer.start_link(__MODULE__, email_address: email_address)
 
     {_, token} = PursuitServices.Util.Token.Google.get(
-      from(u in DB.User, where: u.email == ^email_address, limit: 1)
-        |> DB.one
+      from(u in DB.User, where: u.email == ^email_address, limit: 1) |> DB.one
     )
 
     {:ok, messages} = Google.messages_list_all(token["token"])
@@ -35,6 +34,12 @@ defmodule PursuitServices.Corpus.Gmail do
 
   def init(state) do
     { :ok, Map.merge(@initial_state, Map.new(state)) }
+  end
+
+  def handle_cast(:heartbeat, s) do
+    len = length(s.messages)
+    IO.puts("Sitting on #{len} messages, yo!")
+    {:noreply, s}
   end
 
   def handle_cast({:add_downloaded_message, blob}, state) do 

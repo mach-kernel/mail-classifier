@@ -6,7 +6,7 @@ defmodule PursuitServices.Util.Token do
   alias PursuitServices.DB
   import Ecto.Query
 
-  @callback token(DB.User) :: {:ok, map} | {:fail}
+  @callback get(DB.User) :: {:ok, map} | {:fail}
 
   def latest_authorization(user) do
     from(

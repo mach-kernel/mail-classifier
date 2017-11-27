@@ -1,5 +1,6 @@
 defmodule PursuitServices.Util.REST.Google do
   alias PursuitServices.DB
+  alias PursuitServices.Util.REST
 
   use Tesla
 
@@ -7,7 +8,7 @@ defmodule PursuitServices.Util.REST.Google do
   plug Tesla.Middleware.JSON
   plug Tesla.Middleware.Retry, delay: 500, max_retries: 5
 
-  @spec refresh_token(DB.ThirdPartyAuthorizations) :: map
+  @spec refresh_token(DB.ThirdPartyAuthorization) :: map
   def refresh_token(third_party_authorization) do
     params = %{
       client_id: Dotenv.get("GOOGLE_CLIENT_ID"),
@@ -16,6 +17,43 @@ defmodule PursuitServices.Util.REST.Google do
       refresh_token: third_party_authorization.blob["refresh_token"]
     }
 
-    post("/oauth2/v4/token", params)
+    REST.invoke(fn -> post("/oauth2/v4/token", params) end)
+  end
+
+  defp messages_list_all(_, _, messages, _), do: {:ok, messages}
+
+  defp messages_list_all(access_token, params, messages, page_token) when is_bitstring(page_token) do
+    case messages_list(access_token, 
+                       Map.merge(params, %{pageToken: page_token})) do
+      {:ok, body} ->
+        messages_list_all(
+          access_token,
+          params,
+          messages ++ Map.get(body, "messages", []),
+          body["nextPageToken"]
+        )
+      {:error, _} -> {:error, "Could not fetch messages"}
+    end
+  end
+
+  def messages_list_all(access_token, params \\ %{}) do
+    case messages_list(access_token, params) do
+      {:ok, body} -> 
+        messages_list_all(
+          access_token,
+          params,
+          body["messages"],
+          body["nextPageToken"]
+        )
+      {:error, _} -> {:error, "Could not fetch messages"}
+    end
+  end
+
+  def messages_list(access_token, params \\ %{}) do
+    REST.invoke(fn -> get(
+      "/gmail/v1/users/me/messages",
+      query: Enum.map(params, fn {k, v} -> {k, v} end),
+      headers: %{Authorization: "Bearer #{access_token}"}
+    ) end)
   end
 end

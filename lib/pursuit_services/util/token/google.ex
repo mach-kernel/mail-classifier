@@ -1,24 +1,33 @@
 defmodule PursuitServices.Util.Token.Google do
+  alias PursuitServices.DB
   alias PursuitServices.Util.Token
   alias PursuitServices.Util.REST.Google
 
-  require IEx
   require Ecto.Query
   require Ecto.Changeset
 
   @behaviour Token
 
   @impl true
-  def token(user) do
+  def get(user) do
     latest_auth = Token.latest_authorization(user)
+    current_time = System.system_time(:second)
 
-    if latest_auth.blob["expires_at"] <= System.system_time(:second) do
-      new_blob = Google.refresh_token(latest_auth)
+    latest_auth = if latest_auth.blob["expires_at"] <= current_time do
+      case Google.refresh_token(latest_auth) do 
+        {:ok, body} ->
+          changes = DB.ThirdPartyAuthorization.changeset(
+            latest_auth, %{blob: body}
+          )
 
-      changeset = Ecto.Changeset
-      latest_auth = DB.update(latest_auth, blob: new_blob)
+          DB.update(changes)
+          
+        {:error, _} -> nil
+      end
+    else 
+      latest_auth
     end
 
-    {:ok, latest_auth.blob}
+    if latest_auth, do: {:ok, latest_auth.blob}, else: {:error, "Can't refresh"}
   end
 end

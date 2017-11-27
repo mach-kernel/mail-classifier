@@ -20,7 +20,15 @@ defmodule PursuitServices.Util.REST.Google do
     REST.invoke(fn -> post("/oauth2/v4/token", params) end)
   end
 
-  defp messages_list_all(_, _, messages, _), do: {:ok, messages}
+  def message(access_token, id, params \\ %{}) do
+    REST.invoke(fn -> get(
+      "/gmail/v1/users/me/messages/#{id}",
+      query: params,
+      headers: %{Authorization: "Bearer #{access_token}"}
+    ) end)
+  end
+
+  defp messages_list_all(_, _, messages, nil), do: {:ok, messages}
 
   defp messages_list_all(access_token, params, messages, page_token) when is_bitstring(page_token) do
     case messages_list(access_token, 
@@ -52,7 +60,7 @@ defmodule PursuitServices.Util.REST.Google do
   def messages_list(access_token, params \\ %{}) do
     REST.invoke(fn -> get(
       "/gmail/v1/users/me/messages",
-      query: Enum.map(params, fn {k, v} -> {k, v} end),
+      query: params,
       headers: %{Authorization: "Bearer #{access_token}"}
     ) end)
   end

@@ -8,6 +8,8 @@ defmodule PursuitServices.Util.REST.Google do
   plug Tesla.Middleware.JSON
   plug Tesla.Middleware.Retry, delay: 500, max_retries: 5
 
+  # Confirmed broken, error is "Invalid grant type: "
+  # (yes, invalid grant type empty fucking string)
   @spec refresh_token(DB.ThirdPartyAuthorization) :: map
   def refresh_token(third_party_authorization) do
     params = %{

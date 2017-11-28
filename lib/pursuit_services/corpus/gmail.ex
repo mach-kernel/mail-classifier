@@ -2,6 +2,8 @@ defmodule PursuitServices.Corpus.Gmail do
   alias PursuitServices.Util.REST.Google
   alias PursuitServices.DB
 
+  alias PursuitServices.Shapes.GmailMessage
+
   import Ecto.Query
 
   use PursuitServices.Corpus
@@ -20,6 +22,7 @@ defmodule PursuitServices.Corpus.Gmail do
 
     {:ok, messages} = Google.messages_list_all(token["token"])
 
+    # TODO replace spawn withsupervised task https://hexdocs.pm/elixir/Task.html
     Enum.each(messages, fn(m) ->
       spawn(fn ->
         case Google.message(token["token"], m["id"]) do 
@@ -36,13 +39,10 @@ defmodule PursuitServices.Corpus.Gmail do
     { :ok, Map.merge(@initial_state, Map.new(state)) }
   end
 
-  def handle_call(:get, _, %{ messages: [h | t] }), do: {:reply, h, t} 
-  def handle_call(:get, _, %{ messages: [] }), do: {:stop, "Out of messages"}
-
-  def handle_cast({:add_downloaded_message, blob}, state) do
+  def handle_cast({:add_downloaded_message, %GmailMessage{} = blob}, state) do
     if rem(length(state.messages), 100) == 0, do: Logger.info(
       "Last message received was #{blob["id"]}, #{length(state.messages)} total"
     )
-    {:noreply, Map.merge(state, %{messages: [blob | state.messages]}) }
+    {:noreply, Map.merge(state, %{messages: [ blob | state.messages ] }) }
   end
 end

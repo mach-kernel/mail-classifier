@@ -16,4 +16,7 @@ defmodule PursuitServices.Corpus do
     Logger.info("I have #{length(s.messages)} messages!")
     {:noreply, s}
   end
+
+  def handle_call(:get, _, %{ messages: [h | t] }), do: {:reply, h, t} 
+  def handle_call(:get, _, %{ messages: [] }), do: {:stop, "Out of messages"}
 end

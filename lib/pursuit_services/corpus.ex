@@ -10,7 +10,7 @@ defmodule PursuitServices.Corpus do
     end 
   end
 
-  @callback start(bitstring) :: {:ok, pid}
+  @callback start(binary) :: {:ok, pid}
 
   def handle_cast(:heartbeat, s) do
     Logger.info("I have #{length(s.messages)} messages!")

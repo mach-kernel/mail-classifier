@@ -22,7 +22,7 @@ defmodule PursuitServices.Util.REST.Google do
     invoke(fn -> post("/oauth2/v4/token", params) end)
   end
 
-  @spec messages_list_all(bitstring, map, list(map)) :: {atom, list(map)}
+  @spec messages_list_all(binary, map, list(map)) :: {atom, list(map)}
   def messages_list_all(token, params \\ %{}, messages \\ [])
 
   def messages_list_all(_, %{pageToken: :stop}, m), do: {:ok, m}
@@ -39,7 +39,7 @@ defmodule PursuitServices.Util.REST.Google do
     end
   end
 
-  @spec message(bitstring, any, map) :: {:ok, map} | {:error, any}
+  @spec message(binary, any, map) :: {:ok, map} | {:error, any}
   def message(access_token, id, params \\ %{}) do
     invoke(fn -> get(
       "/gmail/v1/users/me/messages/#{id}",

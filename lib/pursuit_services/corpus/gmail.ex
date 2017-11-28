@@ -3,9 +3,8 @@ defmodule PursuitServices.Corpus.Gmail do
   alias PursuitServices.DB
 
   import Ecto.Query
-  require Logger
 
-  use GenServer
+  use PursuitServices.Corpus
 
   @initial_state %{
     email_address: "",
@@ -37,10 +36,8 @@ defmodule PursuitServices.Corpus.Gmail do
     { :ok, Map.merge(@initial_state, Map.new(state)) }
   end
 
-  def handle_cast(:heartbeat, s) do
-    Logger.info("I have #{length(s.messages)} messages!")
-    {:noreply, s}
-  end
+  def handle_call(:get, _, %{ messages: [h | t] }), do: {:reply, h, t} 
+  def handle_call(:get, _, %{ messages: [] }), do: {:stop, "Out of messages"}
 
   def handle_cast({:add_downloaded_message, blob}, state) do
     if rem(length(state.messages), 100) == 0, do: Logger.info(

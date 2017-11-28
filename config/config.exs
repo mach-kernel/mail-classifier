@@ -36,3 +36,7 @@ config(
   database: "pursuit_development",
   username: "mach"
 )
+
+config :logger, :console,
+  format: "$time *$metadata* [$level] $levelpad$message\n",
+  metadata: [:module]

@@ -7,10 +7,11 @@ defmodule PursuitServices.Util.Token.Google do
   require Ecto.Changeset
 
   @behaviour Token
+  import Token
 
   @impl true
   def get(user) do
-    latest_auth = Token.latest_authorization(user)
+    latest_auth = latest_authorization(user)
     current_time = System.system_time(:second)
 
     latest_auth = if latest_auth.blob["expires_at"] <= current_time do

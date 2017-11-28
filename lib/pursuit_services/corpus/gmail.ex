@@ -1,10 +1,11 @@
 defmodule PursuitServices.Corpus.Gmail do
-  use GenServer
-
   alias PursuitServices.Util.REST.Google
   alias PursuitServices.DB
 
   import Ecto.Query
+  require Logger
+
+  use GenServer
 
   @initial_state %{
     email_address: "",
@@ -24,7 +25,7 @@ defmodule PursuitServices.Corpus.Gmail do
       spawn(fn ->
         case Google.message(token["token"], m["id"]) do 
           {:ok, blob} -> GenServer.cast(pid, {:add_downloaded_message, blob})
-          {:error, _} -> IO.puts("Issue downloading message with ID #{m["id"]}")
+          {:error, _} -> Logger.error("Could not download message: #{m["id"]}")
         end
       end)
     end)
@@ -37,13 +38,14 @@ defmodule PursuitServices.Corpus.Gmail do
   end
 
   def handle_cast(:heartbeat, s) do
-    len = length(s.messages)
-    IO.puts("Sitting on #{len} messages, yo!")
+    Logger.info("I have #{length(s.messages)} messages!")
     {:noreply, s}
   end
 
-  def handle_cast({:add_downloaded_message, blob}, state) do 
-    IO.puts("Adding message with ID #{blob["id"]} to queue")
+  def handle_cast({:add_downloaded_message, blob}, state) do
+    if rem(length(state.messages), 100) == 0, do: Logger.info(
+      "Last message received was #{blob["id"]}, #{length(state.messages)} total"
+    )
     {:noreply, Map.merge(state, %{messages: [blob | state.messages]}) }
   end
 end

@@ -21,7 +21,7 @@ defmodule PursuitServices.Mixfile do
         :amqp,
         :ecto,
         :postgrex,
-        :tesla
+        :httpoison
       ]
     ]
   end
@@ -49,7 +49,7 @@ defmodule PursuitServices.Mixfile do
       {:poison, "~> 3.1"},
 
       # REST
-      {:tesla, "~> 0.9.0"},
+      {:httpoison, "~> 0.13"},
 
       # Mail parser
       {:mail, "~> 0.2.0"},

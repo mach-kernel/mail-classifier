@@ -27,7 +27,7 @@ defmodule PursuitServices.Harness.Mail do
 
   # Getters for mapped features
 
-  def handle_call(:body, _, %{message: %{ body: b }} = s), do: {:reply, b, s} 
+  def handle_call(:body, _, %{message: %{ body: d }} = s), do: {:reply, d, s} 
   def handle_call(:features, _, %{mapped: %{features: d}} = s), do: {:reply, d, s}
 
   ##############################################################################

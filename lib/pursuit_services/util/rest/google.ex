@@ -2,11 +2,7 @@ defmodule PursuitServices.Util.REST.Google do
   alias PursuitServices.DB
   import PursuitServices.Util.REST
 
-  use Tesla
-
-  plug Tesla.Middleware.BaseUrl, "https://www.googleapis.com"
-  plug Tesla.Middleware.JSON
-  plug Tesla.Middleware.Retry, delay: 500, max_retries: 5
+  @base_url "https://www.googleapis.com"
 
   # Confirmed broken, error is "Invalid grant type: "
   # (yes, invalid grant type empty fucking string)
@@ -19,7 +15,7 @@ defmodule PursuitServices.Util.REST.Google do
       refresh_token: third_party_authorization.blob["refresh_token"]
     }
 
-    invoke(fn -> post("/oauth2/v4/token", params) end)
+    invoke(fn -> HTTPoison.post("#{@base_url}/oauth2/v4/token", params) end)
   end
 
   @spec messages_list_all(binary, map, list(map)) :: {atom, list(map)}
@@ -41,18 +37,18 @@ defmodule PursuitServices.Util.REST.Google do
 
   @spec message(binary, any, map) :: {:ok, map} | {:error, any}
   def message(access_token, id, params \\ %{}) do
-    invoke(fn -> get(
-      "/gmail/v1/users/me/messages/#{id}",
-      query: params,
-      headers: default_headers(access_token)
+    invoke(fn -> HTTPoison.get(
+      "#{@base_url}/gmail/v1/users/me/messages/#{id}",
+      default_headers(access_token),
+      params: params
     ) end)
   end
 
   def messages_list(access_token, params \\ %{}) do
-    invoke(fn -> get(
-      "/gmail/v1/users/me/messages",
-      query: params,
-      headers: default_headers(access_token)
+    invoke(fn -> HTTPoison.get(
+      "#{@base_url}/gmail/v1/users/me/messages",
+      default_headers(access_token),
+      params: params
     ) end)
   end
 end

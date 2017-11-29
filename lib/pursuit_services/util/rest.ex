@@ -6,14 +6,20 @@ defmodule PursuitServices.Util.REST do
   def invoke(_, l, retry) when retry > 3, do: {:error, l}
 
   def invoke(f, _, retry) do
-    response = f.()
+    {_, response} = f.()
+    
+    case response do 
+      %HTTPoison.Response{status_code: code} -> 
+        if code < 400 do 
+          {:ok, Poison.decode!(response.body)}
+        else
+          Logger.warn("The last HTTP call was responded to with #{code}")
+          invoke(f, response.body, retry + 1)
+        end
 
-    if response.status < 400 do 
-      {:ok, response.body}
-    else
-      Logger.warn("The last API call failed with status: #{response.status}")
-      :timer.sleep(1000 * retry)
-      invoke(f, response.body, retry + 1)
+      %HTTPoison.Error{reason: why} -> 
+        Logger.error("The last HTTP call failed because of #{why}")
+        invoke(f, response.body, retry + 1)
     end
   end
 

@@ -21,11 +21,37 @@ defmodule PursuitServices.Harness.Mail do
     {:ok, state}
   end
 
-  def handle_call(:features, %{mapped: %{features: f}}), do: {:ok, f}
+  def handle_call(:down, _, %{} = s), do: {:stop, "Goodbye!", s}
+
+  ##############################################################################
+
+  # Getters for mapped features
+
+  def handle_call(:body, _, %{message: %{ body: b }} = s), do: {:reply, b, s} 
+  def handle_call(:features, _, %{mapped: %{features: d}} = s), do: {:reply, d, s}
+
+  ##############################################################################
+
+  # Mapping functions
+
+  def handle_call(:body, _, %{} = state) do 
+    sanitized = HtmlSanitizeEx.strip_tags(state.message.body)
+    {:reply, sanitized, Map.put(state.mapped, :body, sanitized)}
+  end
+
+  def handle_call(:features, _, %{} = state) do
+    cleaned = tokenize_body(state.message.body)
+    {:reply, cleaned, Map.put(state.mapped, :features, cleaned) }
+  end
+
+  ##############################################################################
+
+  # Utility functions
 
   @spec tokenize_body(binary) :: list(binary)
   defp tokenize_body(body) do
-    body |> String.split(" ")
+    body |> HtmlSanitizeEx.strip_tags
+         |> String.split(" ")
          |> Enum.filter(&(Regex.scan(~r/[^A-Za-z0-9]+/im, &1) |> Enum.empty?))
   end
 

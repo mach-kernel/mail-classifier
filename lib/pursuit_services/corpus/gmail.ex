@@ -25,18 +25,14 @@ defmodule PursuitServices.Corpus.Gmail do
 
     case Google.messages_list_all(token["token"]) do
       {:ok, messages} ->
-        require IEx
-
-        IEx.pry
-
         messages = Enum.map(messages, fn m ->
-          Task.async(fn -> 
+          (fn -> 
             case Google.message(token["token"], m["id"]) do 
               {:ok, blob} -> GmailMessage.new(blob)
               {:error, _} -> 
                 Logger.error("Could not download message: #{m["id"]}")
             end
-          end)
+          end).()
         end)
 
         GenServer.start_link(

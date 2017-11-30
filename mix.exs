@@ -15,14 +15,14 @@ defmodule PursuitServices.Mixfile do
   def application do
     [
       mod: {PursuitServices.App, []},
-      applications: [:httpotion],
       extra_applications: [
         :logger,
         :dotenv,
         :amqp,
         :ecto,
         :postgrex,
-        :exconstructor
+        :exconstructor,
+        :httpotion
       ]
     ]
   end

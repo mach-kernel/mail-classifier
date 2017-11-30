@@ -1,6 +1,13 @@
 defmodule PursuitServices.Util.REST do
   require Logger
 
+  defmacro __using__(_) do
+    quote do
+      import PursuitServices.Util.REST
+      def base_url, do: @base_url
+    end
+  end
+
   def invoke(f, _ \\ nil, retry \\ 1)
 
   def invoke(_, l, retry) when retry > 3, do: {:error, l}
@@ -25,5 +32,5 @@ defmodule PursuitServices.Util.REST do
     "Authorization": "Bearer #{access_token}"
   ]
 
-  def default_options, do: [ ]
+  def default_options, do: [ ibrowse: [max_sessions: 100, max_pipeline_size: 10] ]
 end

@@ -15,13 +15,14 @@ defmodule PursuitServices.Mixfile do
   def application do
     [
       mod: {PursuitServices.App, []},
+      applications: [:httpotion],
       extra_applications: [
         :logger,
         :dotenv,
         :amqp,
         :ecto,
         :postgrex,
-        :httpoison
+        :exconstructor
       ]
     ]
   end
@@ -49,13 +50,16 @@ defmodule PursuitServices.Mixfile do
       {:poison, "~> 3.1"},
 
       # REST
-      {:httpoison, "~> 0.13"},
+      {:httpotion, "~> 3.0.2"},
 
       # Mail parser
       {:mail, "~> 0.2.0"},
 
       # HTML sanitizer
-      {:html_sanitize_ex, "~> 1.3.0-rc3"}
+      {:html_sanitize_ex, "~> 1.3.0-rc3"},
+
+      # Easy struct reification
+      {:exconstructor, "~> 1.1.0"}
 
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},

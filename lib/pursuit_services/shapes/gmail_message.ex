@@ -1,5 +1,5 @@
 defmodule PursuitServices.Shapes.GmailMessage do
-  @enforce_keys [:id, :threadId]
+  # @enforce_keys [:id, :threadId]
 
   defstruct [
     :body,
@@ -20,4 +20,6 @@ defmodule PursuitServices.Shapes.GmailMessage do
     :threadId,
     :value
   ]
+
+  use ExConstructor
 end

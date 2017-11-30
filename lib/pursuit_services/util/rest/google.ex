@@ -13,9 +13,9 @@ defmodule PursuitServices.Util.REST.Google do
       client_secret: Dotenv.get("GOOGLE_CLIENT_SECRET"),
       grant_type: "refresh_token",
       refresh_token: third_party_authorization.blob["refresh_token"]
-    }
+    } |> Poison.encode!
 
-    invoke(fn -> HTTPoison.post("#{@base_url}/oauth2/v4/token", params) end)
+    invoke(fn -> HTTPotion.post("#{@base_url}/oauth2/v4/token", params) end)
   end
 
   @spec messages_list_all(binary, map, list(map)) :: {atom, list(map)}
@@ -37,18 +37,16 @@ defmodule PursuitServices.Util.REST.Google do
 
   @spec message(binary, any, map) :: {:ok, map} | {:error, any}
   def message(access_token, id, params \\ %{}) do
-    invoke(fn -> HTTPoison.get(
+    invoke(fn -> HTTPotion.get(
       "#{@base_url}/gmail/v1/users/me/messages/#{id}",
-      default_headers(access_token),
-      params: params
+      [ query: params, headers: default_headers(access_token) ] ++ default_options
     ) end)
   end
 
   def messages_list(access_token, params \\ %{}) do
-    invoke(fn -> HTTPoison.get(
+    invoke(fn -> HTTPotion.get(
       "#{@base_url}/gmail/v1/users/me/messages",
-      default_headers(access_token),
-      params: params
+      [ query: params, headers: default_headers(access_token) ] ++ default_options
     ) end)
   end
 end

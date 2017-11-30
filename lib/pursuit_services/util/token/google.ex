@@ -18,7 +18,7 @@ defmodule PursuitServices.Util.Token.Google do
       case Google.refresh_token(latest_auth) do 
         {:ok, body} ->
           changes = DB.ThirdPartyAuthorization.changeset(
-            latest_auth, %{blob: body}
+            latest_auth, %{blob: Map.merge(latest_auth.blob, body)}
           )
 
           DB.update(changes)

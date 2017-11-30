@@ -6,10 +6,8 @@ defmodule PursuitServices.Util.REST do
   def invoke(_, l, retry) when retry > 3, do: {:error, l}
 
   def invoke(f, _, retry) do
-    {_, response} = f.()
-    
-    case response do 
-      %HTTPoison.Response{status_code: code} -> 
+    case response = f.() do 
+      %HTTPotion.Response{status_code: code} -> 
         if code < 400 do 
           {:ok, Poison.decode!(response.body)}
         else
@@ -17,13 +15,15 @@ defmodule PursuitServices.Util.REST do
           invoke(f, response.body, retry + 1)
         end
 
-      %HTTPoison.Error{reason: why} -> 
+      %HTTPotion.ErrorResponse{message: why} -> 
         Logger.error("The last HTTP call failed because of #{why}")
-        invoke(f, response.body, retry + 1)
+        invoke(f, response, retry + 1)
     end
   end
 
-  def default_headers(access_token), do: %{
-    Authorization: "Bearer #{access_token}"
-  }
+  def default_headers(access_token), do: [
+    "Authorization": "Bearer #{access_token}"
+  ]
+
+  def default_options, do: [ ]
 end

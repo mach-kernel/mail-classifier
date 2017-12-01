@@ -13,9 +13,14 @@ defmodule PursuitServices.Util.REST.Google do
       client_secret: Dotenv.get("GOOGLE_CLIENT_SECRET"),
       grant_type: "refresh_token",
       refresh_token: third_party_authorization.blob["refresh_token"]
-    } |> Poison.encode!
+    } |> URI.encode_query
 
-    invoke(fn -> HTTPotion.post("#{__MODULE__.base_url}/oauth2/v4/token", params) end)
+    invoke(fn -> HTTPotion.post(
+      "#{__MODULE__.base_url}/oauth2/v4/token", 
+      body: params,
+      headers: 
+        ["Content-Type": "application/x-www-form-urlencoded; charset=utf-8"]
+    ) end)
   end
 
   @spec messages_list_all(binary, map, list(map)) :: {atom, list(map)}

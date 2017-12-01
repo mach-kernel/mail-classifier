@@ -16,12 +16,20 @@ defmodule PursuitServices.Util.Token.Google do
 
     latest_auth = if latest_auth.blob["expires_at"] <= current_time do
       case Google.refresh_token(latest_auth) do 
-        {:ok, body} ->
+        {:ok, %{"expires_in" => expire_offset, "access_token" => token} = body} ->
+          body = Map.merge(
+            body,
+            %{ "expires_at" => current_time + expire_offset, "token" => token }
+          )
+
           changes = DB.ThirdPartyAuthorization.changeset(
             latest_auth, %{blob: Map.merge(latest_auth.blob, body)}
           )
 
-          DB.update(changes)
+          case DB.update(changes) do 
+            {:ok, record} -> record
+            {:error, _} -> nil
+          end
           
         {:error, _} -> nil
       end

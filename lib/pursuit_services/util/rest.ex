@@ -19,11 +19,13 @@ defmodule PursuitServices.Util.REST do
           {:ok, Poison.decode!(response.body)}
         else
           Logger.warn("The last HTTP call was responded to with #{code}")
+          :timer.sleep(1000 * retry)
           invoke(f, response.body, retry + 1)
         end
 
       %HTTPotion.ErrorResponse{message: why} -> 
         Logger.error("The last HTTP call failed because of #{why}")
+        :timer.sleep(1000 * retry)
         invoke(f, response, retry + 1)
     end
   end

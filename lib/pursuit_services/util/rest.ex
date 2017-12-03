@@ -10,7 +10,7 @@ defmodule PursuitServices.Util.REST do
 
   def invoke(f, _ \\ nil, retry \\ 1)
 
-  def invoke(_, l, retry) when retry > 3, do: {:error, l}
+  def invoke(_, l, retry) when retry > 4, do: {:error, l}
 
   def invoke(f, _, retry) do
     case response = f.() do 
@@ -18,14 +18,13 @@ defmodule PursuitServices.Util.REST do
         if code < 400 do 
           {:ok, Poison.decode!(response.body)}
         else
-          Logger.warn("The last HTTP call was responded to with #{code}")
-          :timer.sleep(1000 * retry)
+          # http://erlang.org/doc/man/rand.html#uniform-0
+          :timer.sleep(round(15000 * retry * :rand.uniform))
           invoke(f, response.body, retry + 1)
         end
 
       %HTTPotion.ErrorResponse{message: why} -> 
-        Logger.error("The last HTTP call failed because of #{why}")
-        :timer.sleep(1000 * retry)
+        :timer.sleep(round(15000 * retry * :rand.uniform))
         invoke(f, response, retry + 1)
     end
   end

@@ -11,9 +11,7 @@ defmodule PursuitServices.Corpus do
 
       use GenServer
 
-      def init(args) do
-        { :ok, Enum.into(args, @initial_state) }
-      end
+      def init(args), do: { :ok, Enum.into(args, @initial_state) }
 
       def handle_cast(:heartbeat, s) do
         Logger.info("I have #{length(s.messages)} messages!")
@@ -22,9 +20,6 @@ defmodule PursuitServices.Corpus do
 
       def handle_call(:get, _, %{ messages: [] } = s), 
         do: {:stop, "Out of messages", s}
-
-      # def handle_call(other, _, s), do: {:reply, :unsupported, s}
-
     end 
   end
 end

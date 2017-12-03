@@ -22,15 +22,23 @@ defmodule PursuitServices.Corpus.Gmail do
         Enum.each(messages, fn m ->
           Task.start(fn -> 
             case Google.message(token["token"], m["id"], %{"format" => "raw"}) do
-              {:ok, blob} -> 
-                GenServer.call(pid, {:put, GmailMessage.new(blob)})
-              {:error, _} -> 
-                Logger.error("Could not download message: #{m["id"]}")
+              {:ok, blob} ->
+                # We want to try and offset the time we make the requests to 
+                # lean into the rate limit slower
+                :timer.sleep(round(1000 * :rand.uniform))
+
+                GenServer.call(
+                  pid, {:put, GmailMessage.new(blob)}, 1000 * 30 * 60
+                )
+              {:error, %{message: msg}} -> 
+                Logger.error("REST Internal Error: #{m["id"]} (#{msg})")
+              {:error, other} ->
+                Logger.error("Server won't serve message: #{other}")
             end
           end)
         end)
 
-      {:error, _} -> Logger.error("Could not mount corpus")
+      {:error, e} -> Logger.error("Could not mount corpus: #{e}")
     end
 
     {status, pid}

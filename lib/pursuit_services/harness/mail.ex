@@ -18,7 +18,7 @@ defmodule PursuitServices.Harness.Mail do
   @spec init(map) :: {:ok, map}
   def init(state) do
     try do
-      {:ok, Map.put(state, RFC2822.parse(state.rfc_blob))}
+      {:ok, Map.put(state, :message, RFC2822.parse(state.rfc_blob))}
     rescue
       RuntimeError -> {:stop, "Cannot parse RFC2822 envelope"}
     end
@@ -78,6 +78,7 @@ defmodule PursuitServices.Harness.Mail do
     body |> HtmlSanitizeEx.strip_tags
          |> String.split(" ")
          |> Enum.filter(&(Regex.scan(~r/[^A-Za-z0-9]+/im, &1) |> Enum.empty?))
+         |> Enum.uniq
   end
 
   @spec parse_payload(Shapes.RawMessage) :: map

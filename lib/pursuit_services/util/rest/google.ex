@@ -36,7 +36,7 @@ defmodule PursuitServices.Util.REST.Google do
           Map.merge(params, %{pageToken: Map.get(body, "nextPageToken", :stop)}),
           messages ++ Map.get(body, "messages", [])
         )
-      {:error, _} -> {:error, "Could not fetch messages"}
+      {:error, e} -> {:error, "API Error: #{e}"}
     end
   end
 

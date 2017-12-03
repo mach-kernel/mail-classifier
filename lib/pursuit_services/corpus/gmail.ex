@@ -10,6 +10,11 @@ defmodule PursuitServices.Corpus.Gmail do
   @initial_state %{ email_address: "", messages: [] }
   use PursuitServices.Corpus
 
+  @doc """
+    Create a service process containing all of the email messages inside the
+    requested inbox. Spawns isolated async tasks which do not get linked
+    to the calling process.
+  """
   def start(email_address) do 
     {_, token} = PursuitServices.Util.Token.Google.get(
       from(u in DB.User, where: u.email == ^email_address, limit: 1) |> DB.one
@@ -50,6 +55,10 @@ defmodule PursuitServices.Corpus.Gmail do
   def handle_call(:get, _, %{ messages: [h | t] } = s),
     do: {:reply, Mail.start(h), Map.put(s, :messages, t)}
 
+  @doc """
+    The corpus collection is populated concurrently, a GMail API response
+    can be added to the collection via this GenServer call
+  """
   def handle_call({:put, %GmailMessage{} = message}, _, %{messages: m} = s),
     do: {:noreply, Map.put(s, :messages, [message | m]) }  
 

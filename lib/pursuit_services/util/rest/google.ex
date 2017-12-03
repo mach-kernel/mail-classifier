@@ -4,8 +4,10 @@ defmodule PursuitServices.Util.REST.Google do
   @base_url "https://www.googleapis.com"
   use PursuitServices.Util.REST
 
-  # Confirmed broken, error is "Invalid grant type: "
-  # (yes, invalid grant type empty fucking string)
+  @doc """
+    Obtain a refresh token when provided with a ThirdPartyAuthorization shape.
+    Updates the TPA record and returns a valid token set.
+  """
   @spec refresh_token(DB.ThirdPartyAuthorization) :: map
   def refresh_token(third_party_authorization) do
     params = %{
@@ -28,6 +30,9 @@ defmodule PursuitServices.Util.REST.Google do
 
   def messages_list_all(_, %{pageToken: :stop}, m), do: {:ok, m}
 
+  @doc """
+    List all messages across all pages of the requested query.
+  """
   def messages_list_all(token, params, messages) do
     case messages_list(token, params) do
       {:ok, body} ->
@@ -40,6 +45,9 @@ defmodule PursuitServices.Util.REST.Google do
     end
   end
 
+  @doc """
+    Retrieve one message
+  """
   @spec message(binary, any, map) :: {:ok, map} | {:error, any}
   def message(access_token, id, params \\ %{}) do
     invoke(fn -> 
@@ -49,6 +57,10 @@ defmodule PursuitServices.Util.REST.Google do
     ) end)
   end
 
+  @doc """
+    Retrieve a paginated list of messages from the API. Invoke this method again
+    with parameter `nextPageToken` set in order to traverse pages.
+  """
   def messages_list(access_token, params \\ %{}) do
     invoke(fn -> HTTPotion.get(
       "#{__MODULE__.base_url}/gmail/v1/users/me/messages",

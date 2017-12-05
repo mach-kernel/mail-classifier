@@ -3,11 +3,21 @@ defmodule PursuitServices.Util.Token.Google do
   alias PursuitServices.Util.Token
   alias PursuitServices.Util.REST.Google
 
-  require Ecto.Query
+  import Ecto.Query
   require Ecto.Changeset
 
   @behaviour Token
   import Token
+
+  @spec get_from_email(binary) :: binary
+  def get_from_email(email) do
+    case PursuitServices.Util.Token.Google.get(
+      from(u in DB.User, where: u.email == ^email, limit: 1) |> DB.one
+    ) do 
+      {:ok, token} -> token["token"]
+      _ -> nil
+    end
+  end
 
   @impl true
   def get(user) do

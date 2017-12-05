@@ -5,24 +5,24 @@ defmodule PursuitServices.Classifier.Bayes do
   import Ecto.Query
   use GenServer
 
-  def start do 
+  def start(name) do
     latest = from(c in ClassifierCorpus, order_by: [desc: :updated_at])
              |> first 
              |> DB.one
 
-    if is_nil(latest), do: {:error, "Must train a corpus"},
-                       else: GenServer.start_link(__MODULE__, latest)
-  end
 
-  def start(data_tag) do
-    case DB.insert(%ClassifierCorpus{
-      data_id: data_tag,
-      classifier_type: "Bayes",
-      object: ""
-    }) do
-      {:ok, corpus_record} -> GenServer.start_link(__MODULE__, corpus_record)
-      {:error, _} -> {:error, "Could not make new corpus record"}
+    latest = if is_nil(latest) do 
+      case DB.insert(%ClassifierCorpus{
+        name: name, classifier_type: "Bayes", object: ""
+      }) do
+        {:ok, corpus_record} -> corpus_record
+        {:error, _} -> nil
+      end
+    else
+      latest
     end
+
+    GenServer.start_link(__MODULE__, latest)
   end
 
   def init(%ClassifierCorpus{object: <<>>} = corpus),

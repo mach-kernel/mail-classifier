@@ -8,8 +8,6 @@ defmodule PursuitServices.DB.UserMail do
     field :from, :string
     field :subject, :string
     field :body, :string
-    field :created_at, :naive_datetime
-    field :updated_at, :naive_datetime
     field :sent, :naive_datetime
     field :sentiment, :integer
     field :to, :string
@@ -20,6 +18,8 @@ defmodule PursuitServices.DB.UserMail do
     field :deliver_at, :naive_datetime
     field :status, :integer
     field :clean_body, :string
+
+    timestamps(inserted_at: :created_at)
 
     belongs_to :user, PursuitServices.DB.User
   end

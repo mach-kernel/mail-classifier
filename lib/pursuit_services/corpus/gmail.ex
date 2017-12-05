@@ -1,10 +1,9 @@
 defmodule PursuitServices.Corpus.Gmail do
   require Logger
 
-  import Ecto.Query
+  alias PursuitServices.Util.REST
+  alias PursuitServices.Util.Token
 
-  alias PursuitServices.Util.REST.Google
-  alias PursuitServices.DB
   alias PursuitServices.Shapes.GmailMessage
 
   @initial_state %{ email_address: "", messages: [] }
@@ -15,39 +14,51 @@ defmodule PursuitServices.Corpus.Gmail do
     requested inbox. Spawns isolated async tasks which do not get linked
     to the calling process.
   """
-  def start(email_address, args \\ {}) do 
-    {_, token} = PursuitServices.Util.Token.Google.get(
-      from(u in DB.User, where: u.email == ^email_address, limit: 1) |> DB.one
-    )
+  @spec start(binary, map) :: {:ok, pid}
+  def start(email_address, args \\ %{})
 
+  @spec start(binary, binary) :: {:ok, pid}
+  def start(email_address, target_label) when is_binary(target_label) do
+    label_id = email_address |> Token.Google.get_from_email 
+                             |> REST.Google.labels_list
+                             |> Map.get("labels")
+                             |> Enum.find(&(&1["name"] == target_label))
+                             |> Map.get("id")
+
+    args = if is_nil(label_id), do: nil, else: %{labelIds: label_id}
+    start(email_address, args)
+  end
+
+  def start(email_address, %{} = args) do
     {status, pid} = 
       GenServer.start_link(__MODULE__, email_address: email_address)
 
-    case Google.messages_list_all(token["token"]) do
-      {:ok, messages} ->
-        Enum.each(messages, fn m ->
-          Task.start(fn ->
-            case Google.message(token["token"], m["id"], Map.merge(args, %{"format" => "raw"})) do
-              {:ok, blob} ->
-                # We want to try and offset the time we make the requests to 
-                # lean into the rate limit slower
-                :timer.sleep(round(1000 * :rand.uniform))
+    args = Map.merge(args, %{"format" => "raw"})
+    token = Token.Google.get_from_email(email_address)
 
-                GenServer.call(
-                  pid, {:put, GmailMessage.new(blob)}, 1000 * 30 * 60
-                )
-              {:error, %{message: msg}} -> 
-                Logger.error("REST Internal Error: #{m["id"]} (#{msg})")
-              {:error, other} ->
-                Logger.error("Server won't serve message: #{other}")
-            end
-          end)
-        end)
-
+    case REST.Google.messages_list_all(token) do
+      {:ok, messages} -> Enum.each(messages, &find_message(&1, args, token, pid))
       {:error, e} -> Logger.error("Could not mount corpus: #{e}")
     end
 
     {status, pid}
+  end
+
+  # Asynchronously dispatch the map operation of ID -> complete frame
+  defp find_message(%GmailMessage{} = message, %{} = args, token, pid) do
+    Task.start(fn ->
+      case REST.Google.message(token, message["id"], args) do
+        {:ok, blob} ->
+          # We want to try and offset the time we make the requests to 
+          # lean into the rate limit slower
+          :timer.sleep(round(1000 * :rand.uniform))
+          GenServer.call(pid, {:put, GmailMessage.new(blob)}, 1000 * 30 * 60)
+        {:error, %{message: msg}} -> 
+          Logger.error("REST Internal Error: #{message["id"]} (#{msg})")
+        {:error, other} ->
+          Logger.error("Server won't serve message: #{other}")
+      end
+    end)
   end
 
   @doc """

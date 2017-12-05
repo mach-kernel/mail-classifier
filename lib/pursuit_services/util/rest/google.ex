@@ -61,9 +61,19 @@ defmodule PursuitServices.Util.REST.Google do
     Retrieve a paginated list of messages from the API. Invoke this method again
     with parameter `nextPageToken` set in order to traverse pages.
   """
+  @spec messages_list(binary, map) :: {atom, map}
   def messages_list(access_token, params \\ %{}) do
     invoke(fn -> HTTPotion.get(
       "#{__MODULE__.base_url}/gmail/v1/users/me/messages",
+      [ query: params, headers: default_headers(access_token) ] ++ default_options
+    ) end)
+  end
+
+  @doc "Retrieve a list of labels"
+  @spec labels_list(binary, map) :: {atom, map}
+  def labels_list(access_token, params \\ %{}) do
+    invoke(fn -> HTTPotion.get(
+      "#{__MODULE__.base_url}/gmail/v1/users/me/labels",
       [ query: params, headers: default_headers(access_token) ] ++ default_options
     ) end)
   end

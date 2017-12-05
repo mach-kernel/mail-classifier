@@ -15,18 +15,19 @@ defmodule PursuitServices.Corpus.Gmail do
     requested inbox. Spawns isolated async tasks which do not get linked
     to the calling process.
   """
-  def start(email_address) do 
+  def start(email_address, args \\ {}) do 
     {_, token} = PursuitServices.Util.Token.Google.get(
       from(u in DB.User, where: u.email == ^email_address, limit: 1) |> DB.one
     )
 
-    {status, pid} = GenServer.start_link(__MODULE__, email_address: email_address)
+    {status, pid} = 
+      GenServer.start_link(__MODULE__, email_address: email_address)
 
     case Google.messages_list_all(token["token"]) do
       {:ok, messages} ->
         Enum.each(messages, fn m ->
-          Task.start(fn -> 
-            case Google.message(token["token"], m["id"], %{"format" => "raw"}) do
+          Task.start(fn ->
+            case Google.message(token["token"], m["id"], Map.merge(args, %{"format" => "raw"})) do
               {:ok, blob} ->
                 # We want to try and offset the time we make the requests to 
                 # lean into the rate limit slower

@@ -43,12 +43,12 @@ defmodule PursuitServices.Classifier.Bayes do
 
   def handle_call(:down, _, state) do
     Process.exit(state.classifier_pid, :normal)
-    {:stop, "Goodbye!"}
+    {:stop, :normal}
   end
 
   def handle_call({:train, category, data}, _, state) do 
     SimpleBayes.train(state.classifier_pid, category, data)
-    {:noreply, state}
+    {:reply, :ok, state}
   end
 
   def handle_call({:classify, data}, _, state), do:

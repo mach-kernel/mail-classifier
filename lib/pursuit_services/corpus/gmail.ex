@@ -61,7 +61,7 @@ defmodule PursuitServices.Corpus.Gmail do
     can be added to the collection via this GenServer call
   """
   def handle_call({:put, %GmailMessage{} = message}, _, %{messages: m} = s),
-    do: {:noreply, Map.put(s, :messages, [message | m]) }  
+    do: {:reply, :ok, Map.put(s, :messages, [message | m]) }  
 
   def handle_call(_, _, s), do: {:reply, :unsupported, s}
 end

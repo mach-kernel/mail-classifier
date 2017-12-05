@@ -5,10 +5,10 @@ defmodule PursuitServices.DB.ClassifierCorpus do
   @primary_key {:id, :integer, []}
   schema "classifier_corpuses" do
     field :object, :binary
-    field :created_at, :naive_datetime
-    field :updated_at, :naive_datetime
     field :classifier_type, :string
     field :data_id, :string, default: ""
+
+    timestamps(inserted_at: :created_at)
   end
 
   def changeset(tpa, params \\ %{}) do

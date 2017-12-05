@@ -6,7 +6,7 @@ defmodule PursuitServices.Corpus.SpamAssassin do
     archive_name: ''
   }
 
-  @base_url "https://spamassassin.apache.org/old/publiccorpus/"
+  @base_url "https://spamassassin.apache.org/old/publiccorpus"
 
   use PursuitServices.Corpus
 
@@ -14,32 +14,34 @@ defmodule PursuitServices.Corpus.SpamAssassin do
 
   def start(archive_name) do
     {status, pid} = GenServer.start_link(__MODULE__, archive_name: archive_name)
-
-    download = ["wget",
-                "-O",
-                "#{tmp_dir()}/#{archive_name}",
-                "#{@base_url}/#{archive_name}"] |> Enum.join(' ')
-
-    extract = ["cd",
-               tmp_dir(),
-               "&& tar xvfj #{archive_name}",
-               "&& rm #{archive_name}"] |> Enum.join(' ')
-
     Task.start(fn ->
-      System.cmd(download, [])
-      System.cmd(extract, [])
+      System.cmd("wget", ["-O",
+                          "#{tmp_dir()}/#{archive_name}",
+                          "#{@base_url}/#{archive_name}"])
 
-      files = Path.wildcard(tmp_dir() <> "/**/*")
+      uuid = UUID.uuid4()
+      dest_dir = "#{tmp_dir()}/#{uuid}"
+      File.mkdir_p(dest_dir)
+
+      System.cmd("tar", ["xvfj",
+                         "#{tmp_dir()}/#{archive_name}",
+                         "-C",
+                         dest_dir])
+
+      files = Path.wildcard("#{tmp_dir()}/#{uuid}/**/*")
 
       files |> Enum.filter(&File.regular?(&1))
             |> Enum.each(fn f ->
                  Task.start(fn ->
                    GenServer.call(
-                     pid,
-                     RawMessage.new(raw: File.read!(f))
+                     pid, {:put, RawMessage.new(raw: File.read!(f))}
                    )
+
+                   File.rm_rf(f)
                  end)
                end)
+
+      File.rm_rf("#{tmp_dir()}/#{archive_name}")
     end)
 
     {status, pid}
@@ -57,13 +59,14 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   def handle_call(_, _, s), do: {:reply, :unsupported, s}
 
   defp tmp_dir do
-    tmp_path = case File.cwd do
+    cwd = case File.cwd do
       {:ok, path} -> path
       {:error, _} -> nil
     end
 
-    :ok = File.mkdir_p(tmp_path)
+    fullpath = cwd <> "/tmp"
+    :ok = File.mkdir_p(fullpath)
 
-    tmp_path
+    fullpath
   end
 end

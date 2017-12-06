@@ -37,7 +37,7 @@ defmodule PursuitServices.Corpus.Gmail do
     token = Token.Google.get_from_email(email_address)
 
     case REST.Google.messages_list_all(token) do
-      {:ok, messages} -> Enum.each(messages, &find_message(&1, args, token, pid))
+      {:ok, messages} -> Enum.each(messages, &find_message(&1["id"], args, token, pid))
       {:error, e} -> Logger.error("Could not mount corpus: #{e}")
     end
 
@@ -45,16 +45,16 @@ defmodule PursuitServices.Corpus.Gmail do
   end
 
   # Asynchronously dispatch the map operation of ID -> complete frame
-  defp find_message(%GmailMessage{} = message, %{} = args, token, pid) do
+  defp find_message(id, %{} = args, token, pid) do
     Task.start(fn ->
-      case REST.Google.message(token, message["id"], args) do
+      case REST.Google.message(token, id, args) do
         {:ok, blob} ->
           # We want to try and offset the time we make the requests to 
           # lean into the rate limit slower
           :timer.sleep(round(1000 * :rand.uniform))
           GenServer.call(pid, {:put, GmailMessage.new(blob)}, 1000 * 30 * 60)
         {:error, %{message: msg}} -> 
-          Logger.error("REST Internal Error: #{message["id"]} (#{msg})")
+          Logger.error("Failed downloading #{id}: (#{msg})")
         {:error, other} ->
           Logger.error("Server won't serve message: #{other}")
       end

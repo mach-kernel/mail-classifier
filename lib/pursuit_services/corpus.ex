@@ -19,7 +19,7 @@ defmodule PursuitServices.Corpus do
       end
 
       def handle_call(:get, _, %{ messages: [] } = s), 
-        do: {:stop, "Out of messages", s}
+        do: {:stop, :empty, s}
 
       def handle_call(:down, _, %{} = s), do: {:stop, :normal, s}
     end 

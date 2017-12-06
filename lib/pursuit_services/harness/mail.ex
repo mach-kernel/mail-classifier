@@ -37,7 +37,7 @@ defmodule PursuitServices.Harness.Mail do
 
   # Mapping functions
 
-  def handle_call(:body, _, %{} = state) do 
+  def handle_call(:body, _, %{} = state) do
     sanitized = state.message |> get_body |> HtmlSanitizeEx.strip_tags
     {:reply, sanitized, put_in(state, [:mapped, :body], sanitized)}
   end

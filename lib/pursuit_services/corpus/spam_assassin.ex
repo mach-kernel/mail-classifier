@@ -1,4 +1,22 @@
 defmodule PursuitServices.Corpus.SpamAssassin do
+  @doc """
+    Takes messages from the SpamAssassin open database and wraps them in our
+    standardzied parse harness.
+
+    You can check for valid filenames by listing the directory at
+    https://spamassassin.apache.org/old/publiccorpus 
+
+
+    As a convenience, here are some valid ones
+
+    20050311_spam_2.tar.bz2
+    20030228_spam.tar.bz2
+    20030228_spam_2.tar.bz2
+    20030228_easy_ham.tar.bz2
+    20030228_easy_ham_2.tar.bz2
+    20030228_hard_ham.tar.bz2
+  """
+
   require Logger
 
   @initial_state %{

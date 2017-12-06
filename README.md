@@ -2,6 +2,13 @@
 
 **TODO: Add description**
 
+## Welcome
+Here's a quick launchpad for the Pursuit family of projects:
+
+- [pursuit-kagu](https://github.com/mach-kernel/pursuit-kagu)
+- [pursuit-api](https://github.com/mach-kernel/pursuit-api)
+- [pursuit-app](https://github.com/mach-kernel/pursuit-app)
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

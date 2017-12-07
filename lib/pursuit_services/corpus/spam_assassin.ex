@@ -31,7 +31,7 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   ##############################################################################
 
   def handle_cast(:populate_queue, %{archive_name: an} = state) do
-    spawn_archive(an, self())
+    populate_queue(state)
     {:noreply, state}
   end
 
@@ -44,7 +44,7 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   # Utility functions
   ##############################################################################
 
-  def spawn_archive(name, pid) do
+  def populate_queue(%{archive_name: name}) do
     # Download
     System.cmd("wget", ["-O", "#{tmp_dir()}/#{name}", "#{@base_url}/#{name}"])
 
@@ -59,7 +59,7 @@ defmodule PursuitServices.Corpus.SpamAssassin do
       |> Enum.filter(&File.regular?(&1))
       |> Enum.each(fn f ->
            Task.start(fn ->
-             GenServer.call(pid, {:put, RawMessage.new(raw: File.read!(f))})
+             GenServer.call(self(), {:put, RawMessage.new(raw: File.read!(f))})
              File.rm_rf(f)
            end)
          end)

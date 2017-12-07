@@ -25,16 +25,16 @@ defmodule PursuitServices.Train.JobHamSpam do
 
     Logger.info("Job messages ready")
 
-    ham_sources = 
-      ["20030228_easy_ham.tar.bz2",
-       "20030228_easy_ham_2.tar.bz2",
-       "20030228_hard_ham.tar.bz2"] |> Enum.map(&Corpus.SpamAssassin.start(&1))
+    ham_sources = ["20030228_easy_ham.tar.bz2",
+                   "20030228_easy_ham_2.tar.bz2",
+                   "20030228_hard_ham.tar.bz2"] 
+    |> Enum.map(&Corpus.SpamAssassin.start(archive_name: &1))
 
     Logger.info("Ham messages ready")
 
     {:ok, classifier_pid} = PursuitServices.Classifier.Bayes.start("JobHamSpam")
 
-    {:ok, %{
+    {:noreply, %{
       job_sources: job_sources,
       ham_sources: ham_sources,
       classifier: classifier_pid,
@@ -105,9 +105,10 @@ defmodule PursuitServices.Train.JobHamSpam do
     Loops through the corpus until it can pop a valid message, or until
     a stop signal is yielded
   """
-  def find_valid(corpus) do
-    case GenServer.call(corpus, :get) do
+  def find_valid({:ok, corpus_pid} = corpus) do
+    case GenServer.call(corpus_pid, :get) do
       {:ok, pid} ->
+        Logger.info("Popped message from corpus for publishing")
         case GenServer.call(pid, :body) do 
           "" -> find_valid(corpus)
           _ -> {:ok, pid}

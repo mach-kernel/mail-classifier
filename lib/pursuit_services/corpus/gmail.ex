@@ -21,27 +21,7 @@ defmodule PursuitServices.Corpus.Gmail do
   ##############################################################################
 
   def handle_cast(:populate_queue, %{email: email} = state) do
-    token = Token.Google.get_from_email(email)
-    api_args = %{"format" => "raw"}
-
-    target_label = state["target_label"]
-    if !is_nil(target_label) do 
-      lmeta = token |> REST.Google.labels_list 
-                    |> elem(1)
-                    |> Map.get("labels")
-                    |> Enum.find(&(&1["name"] == target_label))
-
-      Map.put(api_args, "labelIds", lmeta["id"])
-    end
-
-    case REST.Google.messages_list_all(token) do
-      {:ok, messages} ->
-        Logger.info("Got here")
-        Enum.each(messages, &find_message(&1["id"], api_args, token, self()))
-      {:error, e} -> 
-        Logger.error("Could not mount corpus: #{e}")
-    end
-
+    populate_queue(state)
     {:noreply, state}
   end
 
@@ -74,5 +54,29 @@ defmodule PursuitServices.Corpus.Gmail do
           Logger.error("Server won't serve message: #{other}")
       end
     end)
+  end
+
+  @doc "Responsible for fetching the frame of desired messages from server"
+  def populate_queue(%{email: email} = state) do
+    token = Token.Google.get_from_email(email)
+    api_args = %{"format" => "raw"}
+
+    target_label = state["target_label"]
+    if !is_nil(target_label) do 
+      lmeta = token |> REST.Google.labels_list 
+                    |> elem(1)
+                    |> Map.get("labels")
+                    |> Enum.find(&(&1["name"] == target_label))
+
+      Map.put(api_args, "labelIds", lmeta["id"])
+    end
+
+    case REST.Google.messages_list_all(token) do
+      {:ok, messages} ->
+        Logger.info("Got here")
+        Enum.each(messages, &find_message(&1["id"], api_args, token, self()))
+      {:error, e} -> 
+        Logger.error("Could not mount corpus: #{e}")
+    end
   end
 end

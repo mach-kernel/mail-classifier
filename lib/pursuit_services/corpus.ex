@@ -10,14 +10,27 @@ defmodule PursuitServices.Corpus do
       use GenServer
 
       @callback handle_cast(:populate_queue, Map.t) :: {:noreply, Map.t}
+      @callback populate_queue(Map.t) :: any
 
       @doc "Start the corpus service"
       def start(args), 
         do: GenServer.start_link(__MODULE__, Enum.into(args, @initial_state))
 
+      def start_immediately(args) do
+        GenServer.start_link(
+          __MODULE__,
+          Enum.into([async: true] ++ args, @initial_state)
+        )
+      end
+
       @doc "Spawn initialization routine via an asynchronous cast"
       def init(initial_state) do
-        GenServer.cast(self(), :populate_queue)
+        if initial_state[:async] do
+          GenServer.cast(self(), :populate_queue)          
+        else
+          populate_queue(initial_state)
+        end
+
         {:ok, initial_state}
       end
 

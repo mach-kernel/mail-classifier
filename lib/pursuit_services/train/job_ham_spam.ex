@@ -14,29 +14,37 @@ defmodule PursuitServices.Train.JobHamSpam do
     {:ok, %{ready: false}}
   end
 
-  def handle_cast(:async_init, _) do
-    Logger.info("Assembling sources")
+  def get_job_sources do 
+    # from(uts in DB.UserTrainingSource) 
+    #   |> DB.all
+    #   |> Enum.map(&Task.async(fn -> 
+    #                 Corpus.Gmail.start(email: &1.email, 
+    #                                    target_label: &1.meta["target_label"])
+    #               end))
 
-    job_sources = from(uts in DB.UserTrainingSource) 
-                  |> DB.all
-                  |> Enum.map(&Corpus.Gmail.start(
-                       email: &1.email, target_label: &1.meta["target_label"]
-                     ))
+    a_source = DB.UserTrainingSource |> first |> DB.one
+    [a_source] |> Enum.map(&Task.async(fn -> 
+                    Corpus.Gmail.start(email: &1.email, 
+                                       target_label: &1.meta["target_label"])
+                  end))
+  end
 
-    Logger.info("Job messages ready")
-
+  def get_ham_sources do
     ham_sources = ["20030228_easy_ham.tar.bz2",
                    "20030228_easy_ham_2.tar.bz2",
                    "20030228_hard_ham.tar.bz2"] 
-    |> Enum.map(&Corpus.SpamAssassin.start(archive_name: &1))
 
-    Logger.info("Ham messages ready")
+    Enum.map(ham_sources, &Task.async(fn -> 
+      Corpus.SpamAssassin.start(archive_name: &1)
+    end))
+  end
 
+  def handle_cast(:async_init, _) do
     {:ok, classifier_pid} = PursuitServices.Classifier.Bayes.start("JobHamSpam")
 
     {:noreply, %{
-      job_sources: job_sources,
-      ham_sources: ham_sources,
+      job_sources: get_job_sources,
+      ham_sources: get_ham_sources,
       classifier: classifier_pid,
       ready: true
     }}
@@ -73,32 +81,25 @@ defmodule PursuitServices.Train.JobHamSpam do
     GenServer.call(state.classifier, :down)
   end
 
+  def train(classifier_pid, job_pid, ham_pid) do
+    {r1, job_msg_pid} = find_valid(job_pid)
+    {r2, ham_msg_pid} = find_valid(ham_pid)
+
+    if Enum.any?([r1, r2], &(&1 == :stop)) do
+      :stop
+    else
+      send_frame(classifier_pid, job_msg_pid, ham_msg_pid)
+      train(classifier_pid, job_pid, ham_pid)
+    end
+  end
+
   @doc """
     Loop through these collections until one of them runs out of messages
     that we can use to do some training
   """
   def train(%{job_sources: [jh | jt], ham_sources: [hh | ht]} = state) do
-    job_message = case find_valid(jh) do
-      {:stop, _} -> 
-        GenServer.call(jh, :down)
-        Map.put(state, :job_sources, jt) |> train
-      frame -> frame
-    end
-
-    ham_message = case find_valid(hh) do 
-      {:stop, _} ->
-        GenServer.call(ht, :down)
-        Map.put(state, :job_sources, jt) |> train
-      frame -> frame
-    end
-
-    case {job_message, ham_message} do
-      {{:ok, jpid}, {:ok, hpid}} -> 
-        send_frame(state.classifier, jpid, hpid)
-        train(state)
-      _ -> 
-        Logger.info("Training complete")
-    end
+    train(state.classifier_pid, Task.await(jh), Task.await(hh))
+    train(Map.merge(state, %{job_sources: jt, ham_sources: ht}))
   end
 
   @doc """

@@ -29,8 +29,18 @@ defmodule PursuitServices.Corpus.Gmail do
     The corpus collection is populated concurrently, a GMail API response
     can be added to the collection via this GenServer call
   """
-  def handle_call({:put, %GmailMessage{} = message}, _, %{messages: m} = s),
-    do: {:reply, :ok, Map.put(s, :messages, [message | m]) }  
+  def handle_call(
+    {:put, %GmailMessage{raw: blob} = message}, _, %{messages: m} = s
+  )
+  do
+    {action, state} = if String.valid?(blob) do 
+                        {:ok, Map.put(s, :messages, [message | m])}
+                      else
+                        {:invalid_encoding, s}
+                      end
+
+    {:reply, action, state}
+  end
 
   @doc "Don't die on unsupported messages"
   def handle_call(_, _, s), do: {:reply, :unsupported, s}

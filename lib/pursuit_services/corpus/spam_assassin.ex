@@ -35,8 +35,19 @@ defmodule PursuitServices.Corpus.SpamAssassin do
     {:noreply, state}
   end
 
-  def handle_call({:put, %RawMessage{} = message}, _, %{messages: m} = s),
-    do: {:reply, :ok, Map.put(s, :messages, [message | m]) } 
+  # TODO: Enumerate and remove all codepoints outside of range for UTF-8
+  def handle_call(
+    {:put, %RawMessage{raw: blob} = message}, _, %{messages: m} = s
+  )
+  do
+    {action, state} = if String.valid?(blob) do 
+                        {:ok, Map.put(s, :messages, [message | m])}
+                      else
+                        {:invalid_encoding, s}
+                      end
+
+    {:reply, action, state}
+  end
 
   def handle_call(_, _, s), do: {:reply, :unsupported, s}
 
@@ -54,12 +65,16 @@ defmodule PursuitServices.Corpus.SpamAssassin do
     File.mkdir_p(dest_dir)
     System.cmd("tar", ["xvfj", "#{tmp_dir()}/#{name}", "-C", dest_dir])
 
+    # self() returns the current PID: inside a task this means the 
+    # task thread explicitly -- we want the current service PID instead
+    svc_pid = self()
+
     # Parallel map into queues
     Path.wildcard("#{tmp_dir()}/#{uuid}/**/*")
-      |> Enum.filter(&File.regular?(&1))
+      |> Enum.filter(&(File.regular?(&1) && !Regex.match?(~r/cmds$/, &1)))
       |> Enum.each(fn f ->
            Task.start(fn ->
-             GenServer.call(self(), {:put, RawMessage.new(raw: File.read!(f))})
+             GenServer.call(svc_pid, {:put, RawMessage.new(raw: File.read!(f))})
              File.rm_rf(f)
            end)
          end)

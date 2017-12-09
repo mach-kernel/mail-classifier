@@ -5,11 +5,17 @@ defmodule PursuitServices.Corpus.Gmail do
     asynchronously
   """
 
+  alias PursuitServices.DB
   alias PursuitServices.Util.REST
   alias PursuitServices.Util.Token
   alias PursuitServices.Shapes.GmailMessage
 
+  import Ecto.Query
+
+  require Logger
+
   @initial_state %{
+    api_args: %{"format" => "raw"},
     email: <<>>,
     messages: []
   }
@@ -17,29 +23,54 @@ defmodule PursuitServices.Corpus.Gmail do
   use PursuitServices.Corpus
 
   ##############################################################################
+  # Server Initialization
+  ##############################################################################
+
+  def init(%{target_label: << target_label :: binary >>} = state) do
+    state = state_check_token(state)
+    lmeta = state.token["token"] |> REST.Google.labels_list 
+                                 |> elem(1)
+                                 |> Map.get("labels")
+                                 |> Enum.find(&(&1["name"] == target_label))
+
+    updated_args = Map.put(state.api_args, "labelIds", lmeta["id"])
+
+    state |> Map.put(:api_args, updated_args)
+          |> init
+  end
+
+  def init(state) do
+    state = state_check_token(state)
+    messages = case REST.Google.messages_list_all(state.token["token"]) do
+                 {:ok, messages} -> messages
+                 {:error, e} -> 
+                   Logger.error("Could not mount corpus: #{e}")
+                   []
+               end
+
+    {:ok, Map.put(state, :messages, messages)}
+  end
+
+  ##############################################################################
   # Server API
   ##############################################################################
 
-  def handle_cast(:populate_queue, %{email: email} = state) do
-    populate_queue(state)
-    {:noreply, state}
-  end
+  def handle_call(:get, _, %{ messages: [%{"id" => id} | t] } = s) do
+    s = state_check_token(s)
 
-  @doc """
-    The corpus collection is populated concurrently, a GMail API response
-    can be added to the collection via this GenServer call
-  """
-  def handle_call(
-    {:put, %GmailMessage{raw: blob} = message}, _, %{messages: m} = s
-  )
-  do
-    {action, state} = if String.valid?(blob) do 
-                        {:ok, Map.put(s, :messages, [message | m])}
-                      else
-                        {:invalid_encoding, s}
-                      end
+    data = case REST.Google.message(s.token["token"], id, %{"format" => "raw"}) do
+      {:ok, blob} -> 
+        blob |> GmailMessage.new |> Mail.start
+      {:error, %{message: msg}} -> 
+        Logger.error("Failed downloading #{id}: (#{msg})")
+        :request_failed
+      {:error, other} ->
+        Logger.error("Server won't serve message: #{other}")
+        :request_failed
+      _ -> :request_failed
+    end
 
-    {:reply, action, state}
+    {:reply, data, Map.put(s, :messages, t)}
   end
 
   @doc "Don't die on unsupported messages"
@@ -49,44 +80,24 @@ defmodule PursuitServices.Corpus.Gmail do
   # Utility functions
   ##############################################################################
 
-  @doc "Asynchronously dispatch the map operation of ID -> complete frame"
-  def find_message(id, %{} = args, token, pid) do
-    Task.start(fn ->
-      case REST.Google.message(token, id, args) do
-        {:ok, blob} ->
-          # We want to try and offset the time we make the requests to 
-          # lean into the rate limit slower
-          :timer.sleep(round(1000 * :rand.uniform))
-          GenServer.call(pid, {:put, GmailMessage.new(blob)}, 1000 * 30 * 60)
-        {:error, %{message: msg}} -> 
-          Logger.error("Failed downloading #{id}: (#{msg})")
-        {:error, other} ->
-          Logger.error("Server won't serve message: #{other}")
-      end
-    end)
+  @spec state_check_token(map) :: map
+  defp state_check_token(%{token: %{}} = state) do
+    if state.token["expires_at"] >= System.system_time(:second) do
+      state
+    else
+      state |> Map.drop(:token) |> state_check_token
+    end
   end
 
-  @doc "Responsible for fetching the frame of desired messages from server"
-  def populate_queue(%{email: email} = state) do
-    token = Token.Google.get_from_email(email)
-    api_args = %{"format" => "raw"}
+  @spec state_check_token(map) :: map
+  defp state_check_token(state) do
+    tokenset = from(u in DB.User, where: u.email == ^state.email) 
+    |> first
+    |> DB.one
+    |> Token.Google.get
+    |> elem(1)
 
-    target_label = state["target_label"]
-    if !is_nil(target_label) do 
-      lmeta = token |> REST.Google.labels_list 
-                    |> elem(1)
-                    |> Map.get("labels")
-                    |> Enum.find(&(&1["name"] == target_label))
 
-      Map.put(api_args, "labelIds", lmeta["id"])
-    end
-
-    case REST.Google.messages_list_all(token) do
-      {:ok, messages} ->
-        Logger.info("Got here")
-        Enum.each(messages, &find_message(&1["id"], api_args, token, self()))
-      {:error, e} -> 
-        Logger.error("Could not mount corpus: #{e}")
-    end
+    Map.put(state, :token, tokenset)
   end
 end

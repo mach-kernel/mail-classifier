@@ -26,22 +26,30 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   use PursuitServices.Corpus
   alias PursuitServices.Shapes.RawMessage
 
+  def init(state) do
+    populate_queue(state)
+    {:ok, state}
+  end
+
   ##############################################################################
   # Server API
   ##############################################################################
 
-  def handle_cast(:populate_queue, %{archive_name: an} = state) do
+  @doc "Asynchronously invoke the spawn job to populate the queue"
+  def handle_cast(:populate_queue, %{archive_name: _} = state) do
     populate_queue(state)
     {:noreply, state}
   end
 
+  @doc "Retrieve a message from the corpus"
+  def handle_call(:get, _, %{messages: [ h | t]} = state) do
+    {:reply, Mail.start(h), Map.put(state, :messages, t)}
+  end
+
   # TODO: Enumerate and remove all codepoints outside of range for UTF-8
-  def handle_call(
-    {:put, %RawMessage{raw: blob} = message}, _, %{messages: m} = s
-  )
-  do
+  def handle_call({:put, %RawMessage{raw: blob} = msg}, _, %{messages: m} = s) do
     {action, state} = if String.valid?(blob) do 
-                        {:ok, Map.put(s, :messages, [message | m])}
+                        {:ok, Map.put(s, :messages, [msg | m])}
                       else
                         {:invalid_encoding, s}
                       end

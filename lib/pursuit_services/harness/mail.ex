@@ -13,20 +13,20 @@ defmodule PursuitServices.Harness.Mail do
   }
 
   @doc "Spawns a corpus service, but does not link it to your supervision tree"
-  def start(payload), do: GenServer.start(__MODULE__, parse_payload(payload))
+  def start(payload) do
+    parsed = parse_payload(payload)
 
-  @spec init(map) :: {:ok, map}
-  def init(state) do
     try do 
-      parsed = if Regex.match?(~r/\r/, state.rfc_blob) do 
-        RFC2822.parse(state.rfc_blob)
+      # For some reason, "Windows-style" returns are treated differently
+      message = if Regex.match?(~r/\r\n/, parsed.rfc_blob) do
+        RFC2822.parse(parsed.rfc_blob)
       else
-        state.rfc_blob |> String.split("\n") |> RFC2822.parse
+        parsed.rfc_blob |> String.split("\n") |> RFC2822.parse
       end
 
-      {:ok, Map.put(state, :message, parsed)}
+      GenServer.start(__MODULE__, Map.put(parsed, :message, message))
     rescue
-      _ -> {:stop, :cannot_parse}      
+      _ -> :cannot_parse      
     end
   end
     

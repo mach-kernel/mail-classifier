@@ -35,18 +35,21 @@ defmodule PursuitServices.Corpus.Gmail do
 
     updated_args = Map.put(state.api_args, "labelIds", lmeta["id"])
 
-    state |> Map.put(:api_args, updated_args)
+    state |> Map.drop([:target_label])
+          |> Map.put(:api_args, updated_args)
           |> init
   end
 
   def init(state) do
     state = state_check_token(state)
-    messages = case REST.Google.messages_list_all(state.token["token"]) do
-                 {:ok, messages} -> messages
-                 {:error, e} -> 
-                   Logger.error("Could not mount corpus: #{e}")
-                   []
-               end
+    messages = 
+      case REST.Google.messages_list_all(state.token["token"], state.api_args) do
+        {:ok, messages} -> messages
+        {:error, e} -> 
+          Logger.error("Could not mount corpus: #{e}")
+          []
+      end
+
 
     {:ok, Map.put(state, :messages, messages)}
   end
@@ -81,16 +84,16 @@ defmodule PursuitServices.Corpus.Gmail do
   ##############################################################################
 
   @spec state_check_token(map) :: map
-  defp state_check_token(%{token: %{}} = state) do
+  def state_check_token(%{token: %{}} = state) do
     if state.token["expires_at"] >= System.system_time(:second) do
       state
     else
-      state |> Map.drop(:token) |> state_check_token
+      state |> Map.drop([:token]) |> state_check_token
     end
   end
 
   @spec state_check_token(map) :: map
-  defp state_check_token(state) do
+  def state_check_token(state) do
     tokenset = from(u in DB.User, where: u.email == ^state.email) 
     |> first
     |> DB.one

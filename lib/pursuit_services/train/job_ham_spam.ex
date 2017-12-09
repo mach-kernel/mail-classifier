@@ -14,29 +14,27 @@ defmodule PursuitServices.Train.JobHamSpam do
     {:ok, %{ready: false}}
   end
 
-  def get_job_sources do 
-    # from(uts in DB.UserTrainingSource) 
-    #   |> DB.all
-    #   |> Enum.map(&Task.async(fn -> 
-    #                 Corpus.Gmail.start(email: &1.email, 
-    #                                    target_label: &1.meta["target_label"])
-    #               end))
+  def get_job_sources do
+    Logger.info("Enumerating job sources & labels, please wait...")
 
-    a_source = DB.UserTrainingSource |> first |> DB.one
-    [a_source] |> Enum.map(&Task.async(fn -> 
-                    Corpus.Gmail.start(email: &1.email, 
-                                       target_label: &1.meta["target_label"])
-                  end))
+    from(uts in DB.UserTrainingSource) 
+      |> DB.all
+      |> Enum.map(fn m ->
+           Logger.info("Downloading for... #{m.email}")
+           Corpus.Gmail.start(
+             email: m.email, 
+             target_label: m.meta["target_label"]
+           )
+         end)
   end
 
   def get_ham_sources do
+    Logger.info("Downloading SpamAssassin archives")
     ham_sources = ["20030228_easy_ham.tar.bz2",
                    "20030228_easy_ham_2.tar.bz2",
                    "20030228_hard_ham.tar.bz2"] 
 
-    Enum.map(ham_sources, &Task.async(fn -> 
-      Corpus.SpamAssassin.start(archive_name: &1)
-    end))
+    Enum.map(ham_sources, &Corpus.SpamAssassin.start(archive_name: &1))
   end
 
   def handle_cast(:async_init, _) do
@@ -45,14 +43,14 @@ defmodule PursuitServices.Train.JobHamSpam do
     {:noreply, %{
       job_sources: get_job_sources,
       ham_sources: get_ham_sources,
-      classifier: classifier_pid,
+      classifier_pid: classifier_pid,
       ready: true
     }}
   end
 
   def handle_cast(:train, %{ready: false} = s) do
     Logger.warn("Not ready to perform training")
-    {:ok, s}
+    {:noreply, s}
   end
 
   def handle_cast(:train, %{ready: true} = state) do
@@ -67,12 +65,9 @@ defmodule PursuitServices.Train.JobHamSpam do
   @doc "Dispatch one complete set of training data to classifier"
   def send_frame(classifier_pid, job_pid, ham_pid) do
     Logger.info("Received frame for training")
-
-    {:ok, job_body} = GenServer.call(job_pid, :body)
-    {:ok, ham_body} = GenServer.call(ham_pid, :body)
-
-    GenServer.call(classifier_pid, {:train, :job, job_body})
-    GenServer.call(classifier_pid, {:train, :ham, ham_body})
+    [{:train, :job, GenServer.call(job_pid, :body)},
+     {:train, :ham, GenServer.call(ham_pid, :body)}] 
+    |> Enum.each(&GenServer.call(classifier_pid, &1))
   end
 
   @doc "TODO better way of doing this"
@@ -98,7 +93,8 @@ defmodule PursuitServices.Train.JobHamSpam do
     that we can use to do some training
   """
   def train(%{job_sources: [jh | jt], ham_sources: [hh | ht]} = state) do
-    train(state.classifier_pid, Task.await(jh), Task.await(hh))
+    Logger.info("New corpus set")
+    train(state.classifier_pid, jh, hh)
     train(Map.merge(state, %{job_sources: jt, ham_sources: ht}))
   end
 
@@ -109,11 +105,11 @@ defmodule PursuitServices.Train.JobHamSpam do
   def find_valid({:ok, corpus_pid} = corpus) do
     case GenServer.call(corpus_pid, :get) do
       {:ok, pid} ->
-        Logger.info("Popped message from corpus for publishing")
         case GenServer.call(pid, :body) do 
           "" -> find_valid(corpus)
           _ -> {:ok, pid}
         end
+      :cannot_parse -> find_valid(corpus)
       _ -> {:stop, :empty}
     end
   end

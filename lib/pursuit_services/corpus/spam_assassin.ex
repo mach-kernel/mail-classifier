@@ -35,12 +35,6 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   # Server API
   ##############################################################################
 
-  @doc "Asynchronously invoke the spawn job to populate the queue"
-  def handle_cast(:populate_queue, %{archive_name: _} = state) do
-    populate_queue(state)
-    {:noreply, state}
-  end
-
   @doc "Retrieve a message from the corpus"
   def handle_call(:get, _, %{messages: [ h | t]} = state) do
     {:reply, Mail.start(h), Map.put(state, :messages, t)}

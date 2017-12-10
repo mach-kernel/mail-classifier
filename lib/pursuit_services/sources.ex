@@ -36,7 +36,7 @@ defmodule PursuitServices.Sources do
       @state_schema %{
         messages: [],
         publish: false,
-        combiners: nil
+        combiner_supervisor: nil
       }
 
       @doc "Start the source service"
@@ -71,27 +71,30 @@ defmodule PursuitServices.Sources do
       """
       def handle_cast(
         :publish, 
-        %{combiners: combiners, messages: [h | t], publish: true} = s
+        %{combiner_supervisor: cs, messages: [h | t], publish: true} = s
       ) do
-        Enum.each(
-          combiners, 
-          &GenServer.cast(&1, map_message(h, s |> Map.drop([:messages])))
-        )
+
+        # Yields a list of tuples {_, pid, worker_type, _} where we don't care
+        # about _
+        cs |> Supervisor.which_children
+           |> Enum.map(&Kernel.elem(&1, 1))
+           |> Enum.shuffle
+           |> Enum.each(
+                &GenServer.cast(&1, map_message(h, s |> Map.drop([:messages])))
+              )
 
         svc_pid = self()
-        spawn(fn ->
-          GenServer.cast(:publish, svc_pid)
-        end)
+        spawn(fn -> GenServer.cast(:publish, svc_pid) end)
 
         {:noreply, %{s | messages: t}}
       end
 
       @doc "Bind training combiners to source."
-      def handle_call({:combiners, cs}, _, state), 
-        do: {:reply, :ok, %{state | combiners: cs}}
+      def handle_call({:bind_combiner_supervisor, cs}, _, state), 
+        do: {:reply, :ok, %{state | combiner_supervisor: cs}}
 
       @doc "Do not attempt to publish without a stream"
-      def handle_call(:publish_on, _, %{combiners: nil} = state),
+      def handle_call(:publish_on, _, %{combiner_supervisor: nil} = state),
         do: {:reply, :unbound_stream, state}
 
       @doc "Enable main event loop and publish to the combiner stream"

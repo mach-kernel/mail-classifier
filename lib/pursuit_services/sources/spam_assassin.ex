@@ -18,10 +18,7 @@ defmodule PursuitServices.Sources.SpamAssassin do
   """
 
   @initial_state %{
-    archive_name: <<>>,
-    messages: [],
-    publish: false,
-    combiner_stream: nil
+    archive_name: <<>>
   }
   @base_url "https://spamassassin.apache.org/old/publiccorpus"
 
@@ -37,12 +34,7 @@ defmodule PursuitServices.Sources.SpamAssassin do
   # Server API
   ##############################################################################
 
-  @doc "Retrieve a message from the corpus"
-  def handle_call(:get, _, %{messages: [ h | t]} = state) do
-    {:reply, Mail.start(h), Map.put(state, :messages, t)}
-  end
-
-  # TODO: Enumerate and remove all codepoints outside of range for UTF-8
+  @doc "Adds a message to the internal queue. For internal use only."
   def handle_call({:put, %RawMessage{raw: blob} = msg}, _, %{messages: m} = s) do
     {action, state} = if String.valid?(blob) do 
                         {:ok, Map.put(s, :messages, [msg | m])}
@@ -59,7 +51,10 @@ defmodule PursuitServices.Sources.SpamAssassin do
   # Utility functions
   ##############################################################################
 
-  def populate_queue(%{archive_name: name}) do
+  @doc "For this case, we just return the existing identity"
+  def map_message(%RawMessage{} = message, _), do: message
+
+  defp populate_queue(%{archive_name: name}) do
     # Download
     System.cmd("wget", ["-O", "#{tmp_dir()}/#{name}", "#{@base_url}/#{name}"])
 

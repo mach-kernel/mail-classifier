@@ -1,78 +1,106 @@
 defmodule PursuitServices.Corpus.Gmail do
-  require Logger
+  @moduledoc """
+    Mounts a mailbox via the Google API and implements standard corpus
+    behaviour. The service is immediately started when invoked and populated
+    asynchronously
+  """
 
+  alias PursuitServices.DB
   alias PursuitServices.Util.REST
   alias PursuitServices.Util.Token
-
   alias PursuitServices.Shapes.GmailMessage
 
-  @initial_state %{ email_address: "", messages: [] }
+  import Ecto.Query
+
+  require Logger
+
+  @initial_state %{
+    api_args: %{"format" => "raw"},
+    email: <<>>,
+    messages: []
+  }
+
   use PursuitServices.Corpus
 
-  @doc """
-    Create a service process containing all of the email messages inside the
-    requested inbox. Spawns isolated async tasks which do not get linked
-    to the calling process.
-  """
-  @spec start(binary, map) :: {:ok, pid}
-  def start(email_address, args \\ %{})
+  ##############################################################################
+  # Server Initialization
+  ##############################################################################
 
-  @spec start(binary, binary) :: {:ok, pid}
-  def start(email_address, target_label) when is_binary(target_label) do
-    label_id = email_address |> Token.Google.get_from_email 
-                             |> REST.Google.labels_list
-                             |> Map.get("labels")
-                             |> Enum.find(&(&1["name"] == target_label))
-                             |> Map.get("id")
+  def init(%{target_label: << target_label :: binary >>} = state) do
+    state = state_check_token(state)
+    lmeta = state.token["token"] |> REST.Google.labels_list 
+                                 |> elem(1)
+                                 |> Map.get("labels")
+                                 |> Enum.find(&(&1["name"] == target_label))
 
-    args = if is_nil(label_id), do: nil, else: %{labelIds: label_id}
-    start(email_address, args)
+    updated_args = Map.put(state.api_args, "labelIds", lmeta["id"])
+
+    state |> Map.drop([:target_label])
+          |> Map.put(:api_args, updated_args)
+          |> init
   end
 
-  def start(email_address, %{} = args) do
-    {status, pid} = 
-      GenServer.start_link(__MODULE__, email_address: email_address)
+  def init(state) do
+    state = state_check_token(state)
+    messages = 
+      case REST.Google.messages_list_all(state.token["token"], state.api_args) do
+        {:ok, messages} -> messages
+        {:error, e} -> 
+          Logger.error("Could not mount corpus: #{e}")
+          []
+      end
 
-    args = Map.merge(args, %{"format" => "raw"})
-    token = Token.Google.get_from_email(email_address)
 
-    case REST.Google.messages_list_all(token) do
-      {:ok, messages} -> Enum.each(messages, &find_message(&1, args, token, pid))
-      {:error, e} -> Logger.error("Could not mount corpus: #{e}")
+    {:ok, Map.put(state, :messages, messages)}
+  end
+
+  ##############################################################################
+  # Server API
+  ##############################################################################
+
+  def handle_call(:get, _, %{ messages: [%{"id" => id} | t] } = s) do
+    s = state_check_token(s)
+
+    data = case REST.Google.message(s.token["token"], id, %{"format" => "raw"}) do
+      {:ok, blob} -> 
+        blob |> GmailMessage.new |> Mail.start
+      {:error, %{message: msg}} -> 
+        Logger.error("Failed downloading #{id}: (#{msg})")
+        :request_failed
+      {:error, other} ->
+        Logger.error("Server won't serve message: #{other}")
+        :request_failed
+      _ -> :request_failed
     end
 
-    {status, pid}
+    {:reply, data, Map.put(s, :messages, t)}
   end
 
-  # Asynchronously dispatch the map operation of ID -> complete frame
-  defp find_message(%GmailMessage{} = message, %{} = args, token, pid) do
-    Task.start(fn ->
-      case REST.Google.message(token, message["id"], args) do
-        {:ok, blob} ->
-          # We want to try and offset the time we make the requests to 
-          # lean into the rate limit slower
-          :timer.sleep(round(1000 * :rand.uniform))
-          GenServer.call(pid, {:put, GmailMessage.new(blob)}, 1000 * 30 * 60)
-        {:error, %{message: msg}} -> 
-          Logger.error("REST Internal Error: #{message["id"]} (#{msg})")
-        {:error, other} ->
-          Logger.error("Server won't serve message: #{other}")
-      end
-    end)
-  end
-
-  @doc """
-    Returns the message in a harness GenServer
-  """
-  def handle_call(:get, _, %{ messages: [h | t] } = s),
-    do: {:reply, Mail.start(h), Map.put(s, :messages, t)}
-
-  @doc """
-    The corpus collection is populated concurrently, a GMail API response
-    can be added to the collection via this GenServer call
-  """
-  def handle_call({:put, %GmailMessage{} = message}, _, %{messages: m} = s),
-    do: {:reply, :ok, Map.put(s, :messages, [message | m]) }  
-
+  @doc "Don't die on unsupported messages"
   def handle_call(_, _, s), do: {:reply, :unsupported, s}
+
+  ##############################################################################
+  # Utility functions
+  ##############################################################################
+
+  @spec state_check_token(map) :: map
+  def state_check_token(%{token: %{}} = state) do
+    if state.token["expires_at"] >= System.system_time(:second) do
+      state
+    else
+      state |> Map.drop([:token]) |> state_check_token
+    end
+  end
+
+  @spec state_check_token(map) :: map
+  def state_check_token(state) do
+    tokenset = from(u in DB.User, where: u.email == ^state.email) 
+    |> first
+    |> DB.one
+    |> Token.Google.get
+    |> elem(1)
+
+
+    Map.put(state, :token, tokenset)
+  end
 end

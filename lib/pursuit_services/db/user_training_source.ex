@@ -6,5 +6,6 @@ defmodule PursuitServices.DB.UserTrainingSource do
     field :auth_provider, :integer
     field :email, :string
     field :label, :string
+    field :meta, :map
   end
 end

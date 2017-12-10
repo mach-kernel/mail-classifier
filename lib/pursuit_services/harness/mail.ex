@@ -12,32 +12,33 @@ defmodule PursuitServices.Harness.Mail do
     meta: %{}
   }
 
-  def start(payload), 
-    do: GenServer.start_link(__MODULE__, parse_payload(payload))
+  @doc "Spawns a corpus service, but does not link it to your supervision tree"
+  def start(payload) do
+    parsed = parse_payload(payload)
 
-  @spec init(map) :: {:ok, map}
-  def init(state) do
-    try do
-      {:ok, Map.put(state, :message, RFC2822.parse(state.rfc_blob))}
+    try do 
+      # For some reason, "Windows-style" returns are treated differently
+      message = if Regex.match?(~r/\r\n/, parsed.rfc_blob) do
+        RFC2822.parse(parsed.rfc_blob)
+      else
+        parsed.rfc_blob |> String.split("\n") |> RFC2822.parse
+      end
+
+      GenServer.start(__MODULE__, Map.put(parsed, :message, message))
     rescue
-      RuntimeError -> {:stop, "Cannot parse RFC2822 envelope"}
+      _ -> :cannot_parse      
     end
   end
-
-  def handle_call(:down, _, %{} = s), do: {:stop, "Goodbye!", s}
-
+    
+  ##############################################################################
+  # Server API
   ##############################################################################
 
-  # Getters for mapped features
-
+  def handle_call(:down, _, %{} = s), do: {:stop, :normal, s}
   def handle_call(:body, _, %{mapped: %{ body: d }} = s), do: {:reply, d, s} 
   def handle_call(:features, _, %{mapped: %{features: d}} = s), do: {:reply, d, s}
 
-  ##############################################################################
-
-  # Mapping functions
-
-  def handle_call(:body, _, %{} = state) do 
+  def handle_call(:body, _, %{} = state) do
     sanitized = state.message |> get_body |> HtmlSanitizeEx.strip_tags
     {:reply, sanitized, put_in(state, [:mapped, :body], sanitized)}
   end
@@ -47,13 +48,11 @@ defmodule PursuitServices.Harness.Mail do
     {:reply, cleaned, put_in(state, [:mapped, :features], cleaned) }
   end
 
-  ##############################################################################  
-
   def handle_call(_, _, s), do: {:reply, :unsupported, s}
 
   ##############################################################################
-
   # Utility functions
+  ##############################################################################
 
   def initial_state, do: @initial_state
 
@@ -82,14 +81,15 @@ defmodule PursuitServices.Harness.Mail do
   end
 
   @spec parse_payload(Shapes.RawMessage) :: map
-  defp parse_payload(%Shapes.RawMessage{} = payload),
-    do: Map.put(initial_state, :rfc_blob, payload.raw)
+  defp parse_payload(%Shapes.RawMessage{} = payload) do
+    Map.put(initial_state(), :rfc_blob, payload.raw)
+  end
 
   @spec parse_payload(Shapes.GmailMessage) :: map
   defp parse_payload(%Shapes.GmailMessage{} = payload) do
     meta = Map.take(payload, [:id, :threadId])
 
-    initial_state |> Map.replace(:meta, meta)
-                  |> Map.put(:rfc_blob, Base.url_decode64!(payload.raw))
+    initial_state() |> Map.replace(:meta, meta)
+                    |> Map.put(:rfc_blob, Base.url_decode64!(payload.raw))
   end
 end

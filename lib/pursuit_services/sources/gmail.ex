@@ -59,14 +59,7 @@ defmodule PursuitServices.Sources.Gmail do
   end
 
   ##############################################################################
-  # Server API
-  ##############################################################################
-
-  @doc "Don't die on unsupported messages"
-  def handle_call(_, _, s), do: {:reply, :unsupported, s}
-
-  ##############################################################################
-  # Utility functions
+  # Corpus implementation
   ##############################################################################
 
   @doc "Map to the message shape"

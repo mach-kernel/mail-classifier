@@ -118,6 +118,9 @@ defmodule PursuitServices.Sources do
 
       @doc "Ends the process"
       def handle_call(:down, _, %{} = s), do: {:stop, :normal, s}
+
+      @doc "Don't die on unsupported messages"
+      def handle_call(_, _, s), do: {:reply, :unsupported, s}
     end 
   end
 end

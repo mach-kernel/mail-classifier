@@ -31,7 +31,7 @@ defmodule PursuitServices.Sources.SpamAssassin do
   end
 
   ##############################################################################
-  # Server API
+  # Server API (internal)
   ##############################################################################
 
   @doc "Adds a message to the internal queue. For internal use only."
@@ -45,10 +45,8 @@ defmodule PursuitServices.Sources.SpamAssassin do
     {:reply, action, state}
   end
 
-  def handle_call(_, _, s), do: {:reply, :unsupported, s}
-
   ##############################################################################
-  # Utility functions
+  # Corpus implementation
   ##############################################################################
 
   @doc "For this case, we just return the existing identity"

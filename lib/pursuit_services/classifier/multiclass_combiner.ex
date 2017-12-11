@@ -27,8 +27,6 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
     state_with_labels = srcs |> Map.values
                              |> Enum.reduce(state, &(&2 |> Map.put(&1, [])))
 
-    # Kick off the event loop
-    GenServer.cast(self(), :send_train_data)
     {:ok, state_with_labels}
   end
 

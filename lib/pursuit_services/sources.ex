@@ -77,11 +77,11 @@ defmodule PursuitServices.Sources do
         # Yields a list of tuples {_, pid, worker_type, _} where we don't care
         # about _
         cs |> Supervisor.which_children
-           |> Enum.map(&Kernel.elem(&1, 1))
-           |> Enum.shuffle
-           |> Enum.each(
-                &GenServer.cast(&1, map_message(h, s |> Map.drop([:messages])))
-              )
+           |> Enum.take_random(1)
+           |> elem(1)
+           |> GenServer.cast({:put, map_message(h, s |> Map.drop([:messages]))})
+
+        Logger.info("Sent message to random partition")
 
         svc_pid = self()
         spawn(fn -> GenServer.cast(:publish, svc_pid) end)
@@ -98,8 +98,10 @@ defmodule PursuitServices.Sources do
         do: {:reply, :unbound_stream, state}
 
       @doc "Enable main event loop and publish to the combiner stream"
-      def handle_call(:publish_on, _, %{publish: false} = state),
-        do: {:reply, :ok, %{state | publish: true}}
+      def handle_call(:publish_on, _, %{publish: false} = state) do
+        GenServer.cast(self(), :publish)
+        {:reply, :ok, %{state | publish: true}}
+      end
 
       @doc "Disable main event loop."
       def handle_call(:publish_off, _, state),

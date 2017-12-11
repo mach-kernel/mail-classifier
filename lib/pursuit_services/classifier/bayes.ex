@@ -3,6 +3,8 @@ defmodule PursuitServices.Classifier.Bayes do
   alias PursuitServices.DB.ClassifierCorpus
 
   import Ecto.Query
+  require Logger
+  
   use GenServer
 
   def start(name) do
@@ -46,8 +48,22 @@ defmodule PursuitServices.Classifier.Bayes do
     {:stop, :normal}
   end
 
-  def handle_call({:train, category, data}, _, state) do 
-    SimpleBayes.train(state.classifier_pid, category, data)
+  def handle_call({:train, batch}, _, state) do
+    Enum.each(batch, fn {label, data} ->
+      case Mail.start(data) do
+        {:ok, harness_pid} -> 
+          SimpleBayes.train(
+            state.classifier_pid,
+            label, 
+            GenServer.call(harness_pid)
+          )
+
+          GenServer.call(harness_pid, :down)
+        _ -> 
+          Logger.warn("Discarded message during training")
+      end
+    end)
+
     {:reply, :ok, state}
   end
 

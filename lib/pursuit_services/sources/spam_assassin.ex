@@ -45,6 +45,9 @@ defmodule PursuitServices.Sources.SpamAssassin do
     {:reply, action, state}
   end
 
+  @doc "Don't die on unsupported messages"
+  def handle_call(_, _, s), do: {:reply, :unsupported, s}
+
   ##############################################################################
   # Corpus implementation
   ##############################################################################

@@ -4,7 +4,7 @@ defmodule PursuitServices.Classifier.Bayes do
 
   import Ecto.Query
   require Logger
-  
+
   use GenServer
 
   def start(name) do
@@ -55,7 +55,7 @@ defmodule PursuitServices.Classifier.Bayes do
           SimpleBayes.train(
             state.classifier_pid,
             label, 
-            GenServer.call(harness_pid)
+            GenServer.call(harness_pid, :body)
           )
 
           GenServer.call(harness_pid, :down)

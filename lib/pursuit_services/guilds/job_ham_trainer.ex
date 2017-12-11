@@ -14,7 +14,7 @@ defmodule PursuitServices.Guilds.JobHamTrainer do
       PursuitServices.Classifier.MulticlassCombiner.start(
         %{job: job_source, ham: ham_source},
         classifier,
-        5
+        2
       )
 
 

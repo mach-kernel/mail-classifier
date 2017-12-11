@@ -66,6 +66,10 @@ defmodule PursuitServices.Sources do
       """
       def handle_cast(:publish, %{publish: false} = s), do: {:noreply, s}
 
+      @doc "When the message queue is empty, end the event loop"
+      def handle_cast(:publish, %{messages: [], publish: true} = s),
+        do: {:noreply, %{ s | publish: false}}
+
       @doc """
         Main event loop. Publishes messages to combiners while allowed.
       """
@@ -120,9 +124,6 @@ defmodule PursuitServices.Sources do
 
       @doc "Ends the process"
       def handle_call(:down, _, %{} = s), do: {:stop, :normal, s}
-
-      @doc "Don't die on unsupported messages"
-      def handle_call(_, _, s), do: {:reply, :unsupported, s}
     end 
   end
 end

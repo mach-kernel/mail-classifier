@@ -16,18 +16,22 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
   """
   def start(%{} = sources, classifier_pid, num_combiners \\ 1) do 
     combiners = Enum.map(1..num_combiners, fn _ -> 
-      {__MODULE__, [%{ sources: sources, classifier_pid: classifier_pid }]}
+      Supervisor.child_spec(
+        {__MODULE__, %{ sources: sources, classifier_pid: classifier_pid }},
+        id: UUID.uuid4()
+      )
     end)
 
     Supervisor.start_link(combiners, strategy: :one_for_one)
   end
 
+
   @doc "Creates empty queues for each label as part of state initialization"
-  def init(%{sources: srcs} = state) do
+  def start_link(%{sources: srcs} = state) do
     state_with_labels = srcs |> Map.values
                              |> Enum.reduce(state, &(&2 |> Map.put(&1, [])))
 
-    {:ok, state_with_labels}
+    GenServer.start_link(__MODULE__, Map.merge(state, state_with_labels))
   end
 
   ##############################################################################

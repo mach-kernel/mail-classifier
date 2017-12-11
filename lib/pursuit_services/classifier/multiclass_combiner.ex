@@ -1,4 +1,4 @@
-defmodule PursuitServices.Train.MulticlassCombiner do 
+defmodule PursuitServices.Classifier.MulticlassCombiner do 
   require Logger
   use GenServer
 

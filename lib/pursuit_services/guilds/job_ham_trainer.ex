@@ -1,0 +1,2 @@
+defmodule PursuitServices.Guilds.JobHamTrainer do
+end

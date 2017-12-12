@@ -11,7 +11,8 @@ defmodule PursuitServices.App do
     children = [
       # Starts a worker by calling: PursuitServices.Worker.start_link(arg)
       # {PursuitServices.Worker, arg},
-      supervisor(PursuitServices.DB, [])
+      supervisor(PursuitServices.DB, []),
+      # supervisor(PursuitServices.Guilds.JobHamTrainer, [])
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

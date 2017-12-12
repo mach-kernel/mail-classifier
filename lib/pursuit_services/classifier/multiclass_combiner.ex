@@ -25,13 +25,19 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
     Supervisor.start_link(combiners, strategy: :one_for_one)
   end
 
-
-  @doc "Creates empty queues for each label as part of state initialization"
+  @doc "Starts the combiner process"
   def start_link(%{sources: srcs} = state) do
-    state_with_labels = srcs |> Map.values
-                             |> Enum.reduce(state, &(&2 |> Map.put(&1, [])))
+    GenServer.start_link(
+      __MODULE__, 
+      srcs |> Map.values
+           |> Enum.reduce(state, &(&2 |> Map.put(&1, [])))
+    )
+  end
 
-    GenServer.start_link(__MODULE__, Map.merge(state, state_with_labels))
+  @doc "Begin the event loop upon up"
+  def init(state) do
+    GenServer.cast(self(), :send_train_data)
+    {:ok, state}
   end
 
   ##############################################################################
@@ -39,7 +45,7 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
   ##############################################################################
 
   @doc "Add a message to its labeled queue"
-  def handle_call({:put, message}, from_pid, %{sources: srcs} = s) do
+  def handle_call({:put, message}, {from_pid, _}, %{sources: srcs} = s) do
     label = srcs[from_pid]
     {:reply, :ok, %{ s | label => [ message | s[label] ]}}
   end
@@ -60,18 +66,22 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
     end)
 
     mapped_state = Enum.map(queue_set, fn {label, queue} ->
-      case queue do
-        [ _ | rest ] -> {label, rest}
-        _ -> {label, []}
-      end
-    end)
+                     case queue do
+                       [ _ | rest ] -> {label, rest}
+                       _ -> {label, []}
+                     end
+                   end) |> Enum.into(%{})
 
     # We will just not publish anything (for now) if out of messages
-    if not Enum.any?(train_set, &(&1 == :stop)) do
+    if Enum.any?(train_set, &(&1 == :stop)) do
+      Logger.info("Empty, waiting for new frames")
+    else
+      # Failure is now HERE BOIS
       GenServer.call(cp, {:train, train_set})
-      svc_pid = self()
-      spawn(fn -> GenServer.cast(svc_pid, :send_train_data) end)
     end
+
+    svc_pid = self()
+    spawn(fn -> GenServer.cast(svc_pid, :send_train_data) end)
 
     # Update queue
     {:noreply, Map.merge(s, mapped_state)}

@@ -62,6 +62,9 @@ defmodule PursuitServices.Sources.Gmail do
   # Corpus implementation
   ##############################################################################
 
+  @doc "Don't die on unsupported messages"
+  def handle_call(_, _, s), do: {:reply, :unsupported, s}
+
   @doc "Map to the message shape"
   def map_message(%{"id" => id}, %{token: %{"token" => token}}) do
     case REST.Google.message(token, id, %{"format" => "raw"}) do

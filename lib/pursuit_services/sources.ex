@@ -91,12 +91,13 @@ defmodule PursuitServices.Sources do
            |> Enum.take_random(1)
            |> hd
            |> elem(1)
-           |> GenServer.call({:put, map_message(h, s |> Map.drop([:messages]))})
+           |> GenServer.call(
+                {:put, map_message(h, s |> Map.drop([:messages]))},
+                :infinity
+              )
 
         Logger.info("Sent message to random partition")
-
-        svc_pid = self()
-        spawn(fn -> GenServer.cast(:publish, svc_pid) end)
+        GenServer.cast(self(), :publish)
 
         {:noreply, %{s | messages: t}}
       end

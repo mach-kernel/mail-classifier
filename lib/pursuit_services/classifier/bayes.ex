@@ -2,6 +2,8 @@ defmodule PursuitServices.Classifier.Bayes do
   alias PursuitServices.DB
   alias PursuitServices.DB.ClassifierCorpus
 
+  alias PursuitServices.Harness.Mail
+
   import Ecto.Query
   require Logger
 
@@ -51,14 +53,17 @@ defmodule PursuitServices.Classifier.Bayes do
   def handle_call({:train, batch}, _, state) do
     Enum.each(batch, fn {label, data} ->
       case Mail.start(data) do
-        {:ok, harness_pid} -> 
+        {:ok, harness_pid} ->
+          Logger.info("Received training frame for #{label}")
+
           SimpleBayes.train(
             state.classifier_pid,
             label, 
             GenServer.call(harness_pid, :body)
           )
 
-          GenServer.call(harness_pid, :down)
+          # It gets touchy about this?
+          # GenServer.call(harness_pid, :down)
         _ -> 
           Logger.warn("Discarded message during training")
       end

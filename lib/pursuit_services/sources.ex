@@ -66,12 +66,19 @@ defmodule PursuitServices.Sources do
       """
       def handle_cast(:publish, %{publish: false} = s), do: {:noreply, s}
 
-      @doc "When the message queue is empty, end the event loop"
-      def handle_cast(:publish, %{messages: [], publish: true} = s),
-        do: {:noreply, %{ s | publish: false}}
+      @doc "When the message queue is empty, sleep a little then try again"
+      def handle_cast(:publish, %{messages: [], publish: true} = s) do
+        Logger.info("Ran out of messages, slow polling...")
+
+        :timer.sleep(5000)
+        GenServer.cast(self(), :publish)
+
+        {:noreply, s}
+      end
 
       @doc """
-        Main event loop. Publishes messages to combiners while allowed.
+        Publishes a message to a random partition according to Elixir's RNG.
+        Currently, the only API this supports is the MulticlassCombiner.
       """
       def handle_cast(
         :publish, 
@@ -82,8 +89,9 @@ defmodule PursuitServices.Sources do
         # about _
         cs |> Supervisor.which_children
            |> Enum.take_random(1)
+           |> hd
            |> elem(1)
-           |> GenServer.cast({:put, map_message(h, s |> Map.drop([:messages]))})
+           |> GenServer.call({:put, map_message(h, s |> Map.drop([:messages]))})
 
         Logger.info("Sent message to random partition")
 

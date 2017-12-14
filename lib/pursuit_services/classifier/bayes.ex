@@ -62,8 +62,7 @@ defmodule PursuitServices.Classifier.Bayes do
             GenServer.call(harness_pid, :body)
           )
 
-          # It gets touchy about this?
-          # GenServer.call(harness_pid, :down)
+          spawn(fn -> GenServer.call(harness_pid, :down) end)
         _ -> 
           Logger.warn("Discarded message during training")
       end

@@ -55,8 +55,10 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
     our sources runs out.
   """
   def handle_cast(:send_train_data, %{sources: srcs, classifier_pid: cp} = s) do
-    :timer.sleep(1000)
+    :timer.sleep(50)
     queue_set = s |> Map.take(Map.values(srcs))
+
+    # log_queue_set(queue_set)
 
     train_set = Enum.map(queue_set, fn {label, queue} ->
       case queue do
@@ -73,17 +75,20 @@ defmodule PursuitServices.Classifier.MulticlassCombiner do
                    end) |> Enum.into(%{})
 
     # We will just not publish anything (for now) if out of messages
-    if Enum.any?(train_set, &(&1 == :stop)) do
-      Logger.info("Empty, waiting for new frames")
-    else
-      # Failure is now HERE BOIS
+    if not Enum.any?(train_set, &(&1 == :stop)) do     
+      Logger.info("Received training frame!")
       GenServer.call(cp, {:train, train_set})
     end
 
-    svc_pid = self()
-    spawn(fn -> GenServer.cast(svc_pid, :send_train_data) end)
+    GenServer.cast(self(), :send_train_data)
 
     # Update queue
     {:noreply, Map.merge(s, mapped_state)}
+  end
+
+  defp log_queue_set(queue_set) do
+    Enum.each(queue_set,
+      &Logger.info("#{length(elem(&1, 1))} #{elem(&1, 0)} messages left")
+    )
   end
 end

@@ -28,6 +28,10 @@ defmodule PursuitServices.Guilds.JobHamTrainer do
     GenServer.call(job_source, :publish_on)
     GenServer.call(ham_source, :publish_on)
 
+    :timer.sleep(60000 * 10)
+
+    GenServer.call(classifier, :persist)
+
     {:ok, combiner}
   end
 end

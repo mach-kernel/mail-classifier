@@ -84,6 +84,7 @@ defmodule PursuitServices.Sources do
         :publish, 
         %{combiner_supervisor: cs, messages: [h | t], publish: true} = s
       ) do
+        :timer.sleep(50)
 
         # Yields a list of tuples {_, pid, worker_type, _} where we don't care
         # about _
@@ -96,7 +97,7 @@ defmodule PursuitServices.Sources do
                 :infinity
               )
 
-        Logger.info("Sent message to random partition")
+        # Logger.info("Sent message to random partition")
         GenServer.cast(self(), :publish)
 
         {:noreply, %{s | messages: t}}

@@ -1,4 +1,4 @@
-defmodule PursuitServices.Corpus.Gmail do
+defmodule PursuitServices.Sources.Gmail do
   @moduledoc """
     Mounts a mailbox via the Google API and implements standard corpus
     behaviour. The service is immediately started when invoked and populated
@@ -16,16 +16,20 @@ defmodule PursuitServices.Corpus.Gmail do
 
   @initial_state %{
     api_args: %{"format" => "raw"},
-    email: <<>>,
-    messages: []
+    email: <<>>
   }
 
-  use PursuitServices.Corpus
+  use PursuitServices.Sources
 
   ##############################################################################
   # Server Initialization
   ##############################################################################
 
+  @doc """
+    If provided a target label in GMail (by name), we will look up the ID as
+    part of the initialization process and feed it to the default API args
+    passed in retrieving messages.
+  """
   def init(%{target_label: << target_label :: binary >>} = state) do
     state = state_check_token(state)
     lmeta = state.token["token"] |> REST.Google.labels_list 
@@ -55,15 +59,16 @@ defmodule PursuitServices.Corpus.Gmail do
   end
 
   ##############################################################################
-  # Server API
+  # Corpus implementation
   ##############################################################################
 
-  def handle_call(:get, _, %{ messages: [%{"id" => id} | t] } = s) do
-    s = state_check_token(s)
+  @doc "Don't die on unsupported messages"
+  def handle_call(_, _, s), do: {:reply, :unsupported, s}
 
-    data = case REST.Google.message(s.token["token"], id, %{"format" => "raw"}) do
-      {:ok, blob} -> 
-        blob |> GmailMessage.new |> Mail.start
+  @doc "Map to the message shape"
+  def map_message(%{"id" => id}, %{token: %{"token" => token}}) do
+    case REST.Google.message(token, id, %{"format" => "raw"}) do
+      {:ok, blob} -> GmailMessage.new(blob)
       {:error, %{message: msg}} -> 
         Logger.error("Failed downloading #{id}: (#{msg})")
         :request_failed
@@ -72,16 +77,7 @@ defmodule PursuitServices.Corpus.Gmail do
         :request_failed
       _ -> :request_failed
     end
-
-    {:reply, data, Map.put(s, :messages, t)}
   end
-
-  @doc "Don't die on unsupported messages"
-  def handle_call(_, _, s), do: {:reply, :unsupported, s}
-
-  ##############################################################################
-  # Utility functions
-  ##############################################################################
 
   @spec state_check_token(map) :: map
   def state_check_token(%{token: %{}} = state) do

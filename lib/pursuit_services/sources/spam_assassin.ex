@@ -1,4 +1,4 @@
-defmodule PursuitServices.Corpus.SpamAssassin do
+defmodule PursuitServices.Sources.SpamAssassin do
   @moduledoc """
     Takes messages from the SpamAssassin open database and wraps them in our
     standardzied parse harness.
@@ -18,12 +18,11 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   """
 
   @initial_state %{
-    archive_name: <<>>,
-    messages: []
+    archive_name: <<>>
   }
   @base_url "https://spamassassin.apache.org/old/publiccorpus"
 
-  use PursuitServices.Corpus
+  use PursuitServices.Sources
   alias PursuitServices.Shapes.RawMessage
 
   def init(state) do
@@ -32,15 +31,10 @@ defmodule PursuitServices.Corpus.SpamAssassin do
   end
 
   ##############################################################################
-  # Server API
+  # Server API (internal)
   ##############################################################################
 
-  @doc "Retrieve a message from the corpus"
-  def handle_call(:get, _, %{messages: [ h | t]} = state) do
-    {:reply, Mail.start(h), Map.put(state, :messages, t)}
-  end
-
-  # TODO: Enumerate and remove all codepoints outside of range for UTF-8
+  @doc "Adds a message to the internal queue. For internal use only."
   def handle_call({:put, %RawMessage{raw: blob} = msg}, _, %{messages: m} = s) do
     {action, state} = if String.valid?(blob) do 
                         {:ok, Map.put(s, :messages, [msg | m])}
@@ -51,13 +45,17 @@ defmodule PursuitServices.Corpus.SpamAssassin do
     {:reply, action, state}
   end
 
+  @doc "Don't die on unsupported messages"
   def handle_call(_, _, s), do: {:reply, :unsupported, s}
 
   ##############################################################################
-  # Utility functions
+  # Corpus implementation
   ##############################################################################
 
-  def populate_queue(%{archive_name: name}) do
+  @doc "For this case, we just return the existing identity"
+  def map_message(%RawMessage{} = message, _), do: message
+
+  defp populate_queue(%{archive_name: name}) do
     # Download
     System.cmd("wget", ["-O", "#{tmp_dir()}/#{name}", "#{@base_url}/#{name}"])
 

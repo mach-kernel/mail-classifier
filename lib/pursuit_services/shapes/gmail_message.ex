@@ -21,5 +21,7 @@ defmodule PursuitServices.Shapes.GmailMessage do
     :value
   ]
 
+  @type t :: %__MODULE__{}
+
   use ExConstructor
 end

@@ -3,7 +3,6 @@
 Mail classification OTP actors.
 
 ## Welcome
-Here's a quick launchpad for the Pursuit family of projects:
 
 - [pursuit-kagu](https://github.com/mach-kernel/pursuit-kagu)
 - [pursuit-api](https://github.com/mach-kernel/pursuit-api)

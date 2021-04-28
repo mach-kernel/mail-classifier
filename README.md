@@ -1,6 +1,6 @@
 # PursuitServices
 
-**TODO: Add description**
+Mail classification OTP actors.
 
 ## Welcome
 Here's a quick launchpad for the Pursuit family of projects:

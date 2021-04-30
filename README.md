@@ -1,4 +1,4 @@
-# PursuitServices
+# mail-classifier
 
 Mail classification OTP actors. Grabs a stream of messages and transforms them into tuples of (message for label a, message for label b) before feedinng them into a naive bayes classifier.
 

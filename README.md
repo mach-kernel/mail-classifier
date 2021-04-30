@@ -1,12 +1,6 @@
 # PursuitServices
 
-Mail classification OTP actors.
-
-## Welcome
-
-- [pursuit-kagu](https://github.com/mach-kernel/pursuit-kagu)
-- [pursuit-api](https://github.com/mach-kernel/pursuit-api)
-- [pursuit-app](https://github.com/mach-kernel/pursuit-app)
+Mail classification OTP actors. Grabs a stream of messages and transforms them into tuples of (message for label a, message for label b) before feedinng them into a naive bayes classifier.
 
 ## Installation
 
